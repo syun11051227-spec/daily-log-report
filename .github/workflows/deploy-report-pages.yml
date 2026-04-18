@@ -1,0 +1,66 @@
+# 週次レポート HTML をビルドし、GitHub Pages で公開する。
+#
+# 事前設定（リポジトリ Settings）:
+#   1. Settings → Secrets and variables → Actions
+#      - GOOGLE_SHEETS_SPREADSHEET_ID … スプレッドシート ID（文字列）
+#      - GOOGLE_SERVICE_ACCOUNT_JSON … サービスアカウント鍵 JSON の全文
+#   2. Google Cloud: サービスアカウントを作成し JSON をダウンロード。
+#      スプレッドシートをその SA のメール（...iam.gserviceaccount.com）に共有（閲覧で可）。
+#   3. Settings → Pages → Build and deployment → Source: 「GitHub Actions」
+#   4. 初回のみ Settings → Environments → github-pages があればそのまま利用
+#
+# 公開 URL の例: https://<ユーザー名>.github.io/<リポジトリ名>/
+#
+# スケジュール: 毎日 22:00 UTC = 日本時間 翌日 07:00（夏時間はずれない前提の UTC 基準）
+name: Deploy weekly report to Pages
+
+on:
+  schedule:
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r report_pipeline/requirements.txt
+
+      - name: Generate report HTML
+        env:
+          GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          mkdir -p public
+          python report_pipeline/generate_week_report.py -o public/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

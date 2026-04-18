@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja" class="text-[112.5%] antialiased [-webkit-text-size-adjust:100%]">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f2f2f7" />
+  <title>週間レポート</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'ios-group': '#f2f2f7',
+            'ios-card': '#ffffff',
+            'ios-label': '#3c3c43',
+            'ios-secondary': 'rgba(60,60,67,0.6)',
+            'ios-tertiary': 'rgba(60,60,67,0.45)',
+            'ios-sep': 'rgba(60,60,67,0.29)',
+            'ios-sep-light': 'rgba(60,60,67,0.12)',
+            'ios-fill-q': 'rgba(120,120,128,0.16)',
+            'accent-streak': '#007aff',
+            'study-1': '#0a84ff',
+            'study-2': '#30b0c7',
+            'study-3': '#ff9500',
+            'study-4': '#636366',
+            'chart-weight': '#34c759',
+            'chart-run': '#ff9500',
+            'chart-goal': '#ff2d55',
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"Hiragino Sans"', '"Hiragino Kaku Gothic ProN"', '"Noto Sans JP"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    .kpi-grid > div::after {
+      content: "›";
+      position: absolute;
+      right: 0.45rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1;
+      color: rgba(60, 60, 67, 0.22);
+      pointer-events: none;
+    }
+    svg.weight-chart line.axis-base {
+      stroke: rgba(60, 60, 67, 0.12);
+      stroke-width: 1;
+    }
+    svg.weight-chart polyline {
+      fill: none;
+      stroke: #34c759;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    svg.weight-chart circle {
+      fill: #34c759;
+    }
+    svg.weight-chart text {
+      font-size: 1rem;
+    }
+    svg.weight-chart text.wpt-label {
+      fill: rgba(60, 60, 67, 0.72);
+      font-weight: 700;
+    }
+    svg.weight-chart line.goal-w {
+      stroke: #ff2d55;
+      stroke-width: 2;
+      stroke-dasharray: 5 4;
+    }
+    svg.weight-chart text.goal-w-text {
+      fill: #ff2d55;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body class="min-h-dvh bg-ios-group font-sans text-base leading-[1.35] tracking-tight text-black">
+  <div class="mx-auto max-w-[375px] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))]">
+    <header class="mb-4 flex flex-col gap-3">
+      <div class="w-full min-w-0">
+        <h1 class="mb-0.5 text-[1.65rem] font-bold leading-[1.15] tracking-tight text-black">週間レポート</h1>
+        <p class="text-[1.05rem] font-semibold leading-tight text-ios-secondary">自己成長トラッキング</p>
+      </div>
+    </header>
+
+    <div class="mb-[1.15rem] inline-flex items-center gap-[0.45rem] rounded-full bg-ios-card px-[0.85rem] py-2 text-[0.95rem] font-semibold tabular-nums text-ios-label shadow-[0_1px_0_rgba(60,60,67,0.12)]" title="対象週">
+      <span class="font-medium text-ios-secondary">対象</span>
+      <strong>{{ rep.label_range }}</strong>
+    </div>
+
+    <section class="overflow-hidden rounded-[14px] bg-ios-card shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="今週の記録">
+      <div class="flex items-start justify-between gap-[0.65rem] px-[1.05rem] pb-[0.65rem] pt-4">
+        <div class="min-w-0 flex-1">
+          <h2 class="m-0 text-xl font-bold tracking-tight text-black">今週の記録</h2>
+          <p class="mt-1 text-[0.95rem] font-medium text-ios-secondary">日ごとの達成状態（v1: オフ・休みは未対応）</p>
+        </div>
+        <aside class="shrink-0 pt-0.5 text-right" aria-label="先週のフル達成と週間達成率">
+          <p class="mb-1.5 text-[0.88rem] font-semibold tracking-wide text-ios-secondary">先週</p>
+          <p class="m-0 flex items-baseline justify-end gap-1.5 text-[1.35rem] font-bold tabular-nums leading-none text-black [font-feature-settings:&quot;tnum&quot;_1]">
+            <span class="text-[1.15rem] leading-none" aria-hidden="true">🍺</span>
+            <span>{{ rep.prev_full_days }}<span class="mx-[0.15em]" aria-hidden="true">　</span>{{ rep.prev_rate }}%</span>
+          </p>
+        </aside>
+      </div>
+      <div class="grid grid-cols-7 gap-[0.35rem] px-[1.05rem] pb-4" role="list">
+        {% for t in rep.tiles %}
+        {% if t.kind == "full" %}
+        <div class="flex min-h-[3.35rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] bg-ios-card text-black shadow-[inset_0_0_0_2px_#000]" role="listitem" aria-label="{{ t.aria }}">
+          <span class="max-w-full text-center text-[1.2rem] leading-none" aria-hidden="true">🍺</span>{{ t.weekday_label }}
+        </div>
+        {% elif t.kind == "partial" %}
+        <div class="flex min-h-[3.35rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] bg-ios-card text-black shadow-[inset_0_0_0_2px_#000]" role="listitem" aria-label="{{ t.aria }}">
+          <span class="max-w-full text-center text-[0.88rem] font-normal leading-none tracking-[-0.28em] text-accent-streak" aria-hidden="true">{{ '★' * t.stars }}</span>{{ t.weekday_label }}
+        </div>
+        {% else %}
+        <div class="flex min-h-[3.35rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] bg-ios-group text-ios-secondary outline outline-2 outline-dashed outline-ios-sep -outline-offset-2" role="listitem" aria-label="{{ t.aria }}">
+          <span class="max-w-full text-center text-[1.05rem] font-extrabold leading-none tracking-wide text-ios-secondary" aria-hidden="true">未</span>{{ t.weekday_label }}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      <div class="mx-[1.05rem] h-px bg-ios-sep-light" aria-hidden="true"></div>
+      <div class="kpi-grid grid grid-cols-2 gap-0 border-t border-ios-sep-light" aria-label="今週のサマリー">
+        <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+          <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-accent-streak">{{ rep.streak_any_input }}</div>
+          <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">連続日数（1件以上入力）</div>
+        </div>
+        <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+          <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">{{ rep.week_full_days }}</div>
+          <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">週 · 全カテゴリ達成</div>
+        </div>
+        <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+          <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">{{ rep.month_full_days }}</div>
+          <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">月 · 全カテゴリ達成</div>
+        </div>
+        <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+          <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">{{ rep.week_rate }}%</div>
+          <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">週間達成率</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="コメント">
+      <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コメント</h2>
+      <p class="m-0 text-[1.02rem] font-medium leading-snug text-ios-secondary">AI による5キャラクター分のコメントは次のステップで接続予定です。</p>
+    </section>
+
+    <div class="mt-4 flex flex-col gap-4">
+      <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="勉強時間">
+        <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強時間</h3>
+        <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+          <div class="flex h-[11.5rem] gap-1.5 m-0 items-stretch p-0" aria-label="勉強の積み上げ">
+            {% for col in study_cols %}
+            <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start">
+              {% for color, h in col|reverse %}
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px]" style="height:{{ '%.2f'|format(h) }}%;background-color:{{ color }}"></div>
+              {% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+          <div class="pointer-events-none absolute left-0 right-0 z-[2] h-0 border-t-2 border-dashed border-chart-goal" style="bottom:{{ '%.2f'|format(goal_line_bottom_pct) }}%">
+            <span class="absolute right-0 top-[-1.2rem] text-[0.82rem] font-bold tracking-wide text-chart-goal">目標 60 分/日</span>
+          </div>
+          <div class="mt-2 grid w-full grid-cols-7 gap-1.5 text-center text-[0.85rem] font-semibold tabular-nums text-ios-secondary">
+            <span class="min-w-0">月</span><span class="min-w-0">火</span><span class="min-w-0">水</span><span class="min-w-0">木</span><span class="min-w-0">金</span><span class="min-w-0">土</span><span class="min-w-0">日</span>
+          </div>
+        </div>
+        <div class="mt-[0.85rem] grid grid-cols-2 gap-x-[0.65rem] gap-y-2 border-t border-ios-sep-light pt-[0.85rem] text-[0.95rem] font-semibold text-ios-label">
+          <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-1"></span>Duolingo</div>
+          <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-2"></span>中国語</div>
+          <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-3"></span>プログラミング</div>
+          <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-4"></span>ドリル</div>
+        </div>
+      </section>
+
+      <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="体重">
+        <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">体重</h3>
+        {% if weight_polyline %}
+        <svg class="weight-chart h-40 w-full" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#34c759" stop-opacity="0.2" />
+              <stop offset="100%" stop-color="#34c759" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <line class="axis-base" x1="18" y1="128" x2="382" y2="128" />
+          <polygon fill="url(#wg)" points="{{ weight_polygon_fill }}" />
+          <polyline points="{{ weight_polyline }}" />
+          {{ weight_circles|safe }}
+          <line class="goal-w" x1="18" y1="{{ '%.1f'|format(weight_goal_y) }}" x2="382" y2="{{ '%.1f'|format(weight_goal_y) }}" />
+          <text class="goal-w-text" x="378" y="{{ '%.1f'|format(weight_goal_y - 6) }}" text-anchor="end">目標 68</text>
+        </svg>
+        <div class="mt-2 flex justify-between text-base font-medium text-ios-secondary">
+          <span>{% if rep.weight_labels[0] %}開始 {{ rep.weight_labels[0] }} kg{% else %}開始日{% endif %}</span>
+          <span>{% if rep.weight_labels[1] %}本日 {{ rep.weight_labels[1] }} kg{% else %}本日{% endif %}</span>
+        </div>
+        {% else %}
+        <p class="m-0 text-base font-medium text-ios-secondary">この週に体重（kg）の記録がありません。</p>
+        {% endif %}
+      </section>
+
+      <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="ランニング">
+        <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">ランニング</h3>
+        <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+          <div class="m-0 flex h-[9.5rem] items-stretch gap-[5px] p-0" aria-label="日別距離">
+            {% for h in run_bars %}
+            <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run {% if h <= 0 %}opacity-20{% endif %}" style="height:{{ '%.2f'|format(h) }}%"></div>
+            {% endfor %}
+          </div>
+          <div class="pointer-events-none absolute left-0 right-0 z-[2] h-0 border-t-2 border-dashed border-chart-goal" style="bottom:{{ '%.2f'|format(run_goal_bottom_pct) }}%">
+            <span class="absolute right-0 top-[-1.2rem] text-[0.82rem] font-bold tracking-wide text-chart-goal">目標 5 km</span>
+          </div>
+          <div class="mt-2 grid w-full grid-cols-7 gap-1.5 text-center text-[0.85rem] font-semibold tabular-nums text-ios-secondary">
+            <span class="min-w-0">月</span><span class="min-w-0">火</span><span class="min-w-0">水</span><span class="min-w-0">木</span><span class="min-w-0">金</span><span class="min-w-0">土</span><span class="min-w-0">日</span>
+          </div>
+        </div>
+        <p class="mt-[0.7rem] text-base font-medium text-ios-secondary">
+          ペース <strong class="font-bold text-black">{% if rep.pace_avg_min_per_km %}{{ rep.pace_avg_min_per_km }}{% else %}—{% endif %}</strong>/km
+          <span class="font-bold text-chart-goal">　目標 {{ rep.pace_goal_label }}</span>
+        </p>
+      </section>
+    </div>
+
+    <footer class="mt-5 border-t border-transparent pt-[0.85rem] text-center text-[0.82rem] font-semibold text-ios-tertiary">自動生成 · 週のみ v1 · タイムゾーン Asia/Shanghai</footer>
+  </div>
+</body>
+</html>

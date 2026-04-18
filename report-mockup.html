@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="ja" class="text-[112.5%] antialiased [-webkit-text-size-adjust:100%]">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f2f2f7" />
+  <title>週間レポート</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'ios-group': '#f2f2f7',
+            'ios-card': '#ffffff',
+            'ios-label': '#3c3c43',
+            'ios-secondary': 'rgba(60,60,67,0.6)',
+            'ios-tertiary': 'rgba(60,60,67,0.45)',
+            'ios-sep': 'rgba(60,60,67,0.29)',
+            'ios-sep-light': 'rgba(60,60,67,0.12)',
+            'ios-fill-q': 'rgba(120,120,128,0.16)',
+            'accent-streak': '#007aff',
+            'study-1': '#0a84ff',
+            'study-2': '#30b0c7',
+            'study-3': '#ff9500',
+            'study-4': '#636366',
+            'chart-weight': '#34c759',
+            'chart-run': '#ff9500',
+            'chart-goal': '#ff2d55',
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"Hiragino Sans"', '"Hiragino Kaku Gothic ProN"', '"Noto Sans JP"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    /* 疑似要素のみ（Tailwindと併用） */
+    .kpi-grid > div::after {
+      content: "›";
+      position: absolute;
+      right: 0.45rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1;
+      color: rgba(60, 60, 67, 0.22);
+      pointer-events: none;
+    }
+    .rate-tile-nav::after {
+      content: "›";
+      position: absolute;
+      right: 0.2rem;
+      bottom: 0.15rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+      line-height: 1;
+      color: rgba(60, 60, 67, 0.45);
+    }
+    .rate-cols-6 .rate-tile-nav::after {
+      font-size: 0.88rem;
+      right: 0.08rem;
+      bottom: 0.08rem;
+    }
+    svg.weight-chart line.axis-base {
+      stroke: rgba(60, 60, 67, 0.12);
+      stroke-width: 1;
+    }
+    svg.weight-chart polyline {
+      fill: none;
+      stroke: #34c759;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    svg.weight-chart circle {
+      fill: #34c759;
+    }
+    svg.weight-chart text {
+      font-size: 1rem;
+    }
+    svg.weight-chart text.wpt-label {
+      fill: rgba(60, 60, 67, 0.72);
+      font-weight: 700;
+    }
+    svg.weight-chart line.goal-w {
+      stroke: #ff2d55;
+      stroke-width: 2;
+      stroke-dasharray: 5 4;
+    }
+    svg.weight-chart text.goal-w-text {
+      fill: #ff2d55;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    /* CDN の aria バリアント差異に備えたフォールバック */
+    #view-switch-tabs [aria-selected="true"] {
+      color: #000000;
+      background: #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    }
+  </style>
+</head>
+<body class="min-h-dvh bg-ios-group font-sans text-base leading-[1.35] tracking-tight text-black">
+  <div class="mx-auto max-w-[375px] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))]">
+    <header class="mb-4 flex flex-col gap-3">
+      <div class="w-full min-w-0">
+        <h1 class="mb-0.5 text-[1.65rem] font-bold leading-[1.15] tracking-tight text-black" id="report-nav-title">週間レポート</h1>
+        <p class="text-[1.05rem] font-semibold leading-tight text-ios-secondary">自己成長トラッキング</p>
+      </div>
+      <div id="view-switch-tabs" class="view-switch flex w-full gap-0 rounded-[10px] bg-ios-fill-q p-[3px]" role="tablist" aria-label="表示期間の切り替え">
+        <button type="button" class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent px-2 py-2 text-[0.88rem] font-bold tracking-wide text-ios-secondary [-webkit-tap-highlight-color:transparent] aria-[selected=true]:bg-ios-card aria-[selected=true]:text-black aria-[selected=true]:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-streak" role="tab" id="tab-week" aria-controls="view-week" aria-selected="true" data-view="week">週間</button>
+        <button type="button" class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent px-2 py-2 text-[0.88rem] font-bold tracking-wide text-ios-secondary [-webkit-tap-highlight-color:transparent] aria-[selected=true]:bg-ios-card aria-[selected=true]:text-black aria-[selected=true]:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-streak" role="tab" id="tab-month" aria-controls="view-month" aria-selected="false" data-view="month">月間</button>
+        <button type="button" class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent px-2 py-2 text-[0.88rem] font-bold tracking-wide text-ios-secondary [-webkit-tap-highlight-color:transparent] aria-[selected=true]:bg-ios-card aria-[selected=true]:text-black aria-[selected=true]:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-streak" role="tab" id="tab-year" aria-controls="view-year" aria-selected="false" data-view="year">年間</button>
+      </div>
+    </header>
+
+    <div class="view-panel" id="view-week" role="tabpanel" aria-labelledby="tab-week" data-view="week">
+      <div class="mb-[1.15rem] inline-flex items-center gap-[0.45rem] rounded-full bg-ios-card px-[0.85rem] py-2 text-[0.95rem] font-semibold tabular-nums text-ios-label shadow-[0_1px_0_rgba(60,60,67,0.12)]" title="対象週">
+        <span class="font-medium text-ios-secondary">対象</span>
+        <strong>4/7 — 4/13</strong>
+      </div>
+
+    <section class="overflow-hidden rounded-[14px] bg-ios-card shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="今週の記録">
+      <div class="flex items-start justify-between gap-[0.65rem] px-[1.05rem] pb-[0.65rem] pt-4">
+        <div class="min-w-0 flex-1">
+          <h2 class="m-0 text-xl font-bold tracking-tight text-black">今週の記録</h2>
+          <p class="mt-1 text-[0.95rem] font-medium text-ios-secondary">日ごとの達成状態</p>
+        </div>
+        <aside class="shrink-0 pt-0.5 text-right" aria-label="先週：フル達成2日、週間達成率71パーセント">
+          <p class="mb-1.5 text-[0.88rem] font-semibold tracking-wide text-ios-secondary">先週</p>
+          <p class="m-0 flex items-baseline justify-end gap-1.5 text-[1.35rem] font-bold tabular-nums leading-none text-black [font-feature-settings:&quot;tnum&quot;_1]">
+            <span class="text-[1.15rem] leading-none" aria-hidden="true">🍺</span>
+            <span>2<span class="mx-[0.15em]" aria-hidden="true">　</span>71%</span>
+          </p>
+        </aside>
+      </div>
+      <div class="grid grid-cols-7 gap-[0.35rem] px-[1.05rem] pb-4" role="list">
+        <div class="flex min-h-[3.35rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] bg-ios-card text-black shadow-[inset_0_0_0_2px_#000]" role="listitem" aria-label="月曜 部分達成（2項目）"><span class="max-w-full text-center text-[0.88rem] font-normal leading-none tracking-[-0.28em] text-accent-streak" aria-hidden="true">★★</span>月</div>
+        <div class="flex min-h-[3.35rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] bg-ios-card text-black shadow-[inset_0_0_0_2px_#000]" role="listitem" aria-label="火曜 フル達成"><span class="max-w-full text-center text-[1.2rem] leading-none" aria-hidden="true">🍺</span>火</div>
+        <div class="flex min-h-[3.35rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] bg-ios-group text-ios-secondary outline outline-2 outline-dashed outline-ios-sep -outline-offset-2" role="listitem" aria-label="水曜 未入力"><span class="max-w-full text-center text-[1.05rem] font-extrabold leading-none tracking-wide text-ios-secondary" aria-hidden="true">未</span>水</div>
+        <div class="flex min-h-[3.35rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] bg-ios-card text-black shadow-[inset_0_0_0_2px_#000]" role="listitem" aria-label="木曜 部分達成（1項目）"><span class="max-w-full text-center text-[1.2rem] font-normal leading-none tracking-[-0.12em] text-accent-streak" aria-hidden="true">★</span>木</div>
+        <div class="flex min-h-[3.35rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] bg-ios-card text-black shadow-[inset_0_0_0_2px_#000]" role="listitem" aria-label="金曜 フル達成"><span class="max-w-full text-center text-[1.2rem] leading-none" aria-hidden="true">🍺</span>金</div>
+        <div class="flex min-h-[3.35rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] bg-ios-group text-ios-secondary shadow-[inset_0_0_0_2px_rgba(60,60,67,0.45)]" role="listitem" aria-label="土曜 意図的オフ"><span class="max-w-full text-center text-[0.82rem] font-extrabold leading-none tracking-tight text-ios-tertiary" aria-hidden="true">オフ</span>土</div>
+        <div class="flex min-h-[3.35rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] bg-study-1/8 text-ios-secondary shadow-[inset_0_0_0_2px_rgba(10,132,255,0.35)]" role="listitem" aria-label="日曜 休み"><span class="max-w-full text-center text-[1.05rem] font-extrabold leading-none text-study-1" aria-hidden="true">休</span>日</div>
+      </div>
+      <div class="mx-[1.05rem] h-px bg-ios-sep-light" aria-hidden="true"></div>
+      <div class="kpi-grid grid grid-cols-2 gap-0 border-t border-ios-sep-light" aria-label="今週のサマリー">
+        <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+          <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-accent-streak">12</div>
+          <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">連続日数</div>
+        </div>
+        <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+          <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">3</div>
+          <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">週 · 全カテゴリ達成</div>
+        </div>
+        <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+          <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">18</div>
+          <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">月 · 全カテゴリ達成</div>
+        </div>
+        <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+          <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">85%</div>
+          <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">週間達成率</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="コメント（表示は毎回ランダムで2名）">
+      <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コメント</h2>
+      <div class="coach-slots divide-y divide-ios-sep-light"></div>
+    </section>
+
+    <div class="mt-4 flex flex-col gap-4">
+      <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="勉強時間">
+        <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強時間</h3>
+        <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+          <div class="flex h-[11.5rem] gap-1.5 m-0 items-stretch p-0" aria-label="勉強の積み上げ（サンプル）">
+            <!-- 下→上: ドリル, プログラミング, 中国語, Duolingo。日ごと合計%を大きく変化 -->
+            <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start">
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:6%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:10%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:8%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:14%"></div>
+            </div>
+            <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start">
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:14%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:38%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:18%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:22%"></div>
+            </div>
+            <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start">
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:4%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:6%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:5%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:10%"></div>
+            </div>
+            <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start">
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:18%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:32%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:26%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:24%"></div>
+            </div>
+            <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start">
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:10%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:22%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:16%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:18%"></div>
+            </div>
+            <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start">
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:12%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:42%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:14%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:16%"></div>
+            </div>
+            <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start">
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:8%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:14%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:20%"></div>
+              <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:12%"></div>
+            </div>
+          </div>
+          <div class="pointer-events-none absolute left-0 right-0 z-[2] h-0 border-t-2 border-dashed border-chart-goal" style="bottom:75%">
+            <span class="absolute right-0 top-[-1.2rem] text-[0.82rem] font-bold tracking-wide text-chart-goal">目標 120 分/日</span>
+          </div>
+          <div class="mt-2 grid w-full grid-cols-7 gap-1.5 text-center text-[0.85rem] font-semibold tabular-nums text-ios-secondary">
+            <span class="min-w-0">月</span><span class="min-w-0">火</span><span class="min-w-0">水</span><span class="min-w-0">木</span><span class="min-w-0">金</span><span class="min-w-0">土</span><span class="min-w-0">日</span>
+          </div>
+        </div>
+        <div class="mt-[0.85rem] grid grid-cols-2 gap-x-[0.65rem] gap-y-2 border-t border-ios-sep-light pt-[0.85rem] text-[0.95rem] font-semibold text-ios-label">
+          <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-1"></span>Duolingo</div>
+          <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-2"></span>中国語</div>
+          <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-3"></span>プログラミング</div>
+          <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-4"></span>ドリル</div>
+        </div>
+      </section>
+
+      <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="体重">
+        <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">体重</h3>
+        <svg class="weight-chart h-40 w-full" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#34c759" stop-opacity="0.2" />
+              <stop offset="100%" stop-color="#34c759" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <line class="axis-base" x1="18" y1="128" x2="382" y2="128" />
+          <!-- 7日: 68.2 → … → 67.4 kg（Yは下方向ほど軽い） -->
+          <polygon fill="url(#wg)" points="20,54 80,58 140,56 200,62 260,67 320,72 380,78 380,128 20,128" />
+          <polyline points="20,54 80,58 140,56 200,62 260,67 320,72 380,78" />
+          <circle cx="20" cy="54" r="5" />
+          <circle cx="380" cy="78" r="5" />
+          <line class="goal-w" x1="18" y1="92" x2="382" y2="92" />
+          <text class="goal-w-text" x="378" y="86" text-anchor="end">目標 66.5</text>
+          <text class="wpt-label" x="20" y="45" text-anchor="middle">68.2</text>
+          <text class="wpt-label" x="380" y="69" text-anchor="middle">67.4</text>
+        </svg>
+        <div class="mt-2 flex justify-between text-base font-medium text-ios-secondary">
+          <span>開始日</span>
+          <span>本日</span>
+        </div>
+      </section>
+
+      <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="ランニング">
+        <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">ランニング</h3>
+        <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+          <div class="m-0 flex h-[9.5rem] items-stretch gap-[5px] p-0" aria-label="日別距離">
+            <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:35%"></div>
+            <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:55%"></div>
+            <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run opacity-20" style="height:0%"></div>
+            <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:42%"></div>
+            <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:60%"></div>
+            <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:48%"></div>
+            <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:38%"></div>
+          </div>
+          <div class="pointer-events-none absolute left-0 right-0 z-[2] h-0 border-t-2 border-dashed border-chart-goal" style="bottom:50%">
+            <span class="absolute right-0 top-[-1.2rem] text-[0.82rem] font-bold tracking-wide text-chart-goal">目標 5 km</span>
+          </div>
+          <div class="mt-2 grid w-full grid-cols-7 gap-1.5 text-center text-[0.85rem] font-semibold tabular-nums text-ios-secondary">
+            <span class="min-w-0">月</span><span class="min-w-0">火</span><span class="min-w-0">水</span><span class="min-w-0">木</span><span class="min-w-0">金</span><span class="min-w-0">土</span><span class="min-w-0">日</span>
+          </div>
+        </div>
+        <p class="mt-[0.7rem] text-base font-medium text-ios-secondary">ペース <strong class="font-bold text-black">5:42</strong>/km　<span class="font-bold text-chart-goal">目標 6:00</span></p>
+      </section>
+    </div>
+
+    <footer class="mt-5 border-t border-transparent pt-[0.85rem] text-center text-[0.85rem] font-semibold text-ios-tertiary">サンプル表示</footer>
+    </div>
+
+    <div class="view-panel" id="view-month" role="tabpanel" aria-labelledby="tab-month" data-view="month" hidden>
+      <div class="mb-[1.15rem] inline-flex items-center gap-[0.45rem] rounded-full bg-ios-card px-[0.85rem] py-2 text-[0.95rem] font-semibold tabular-nums text-ios-label shadow-[0_1px_0_rgba(60,60,67,0.12)]" title="対象月">
+        <span class="font-medium text-ios-secondary">対象</span>
+        <strong>2026年4月</strong>
+      </div>
+      <p class="-mt-1 mb-4 text-[0.84rem] font-medium leading-snug text-ios-secondary">達成率は週単位です。上の第n週タイルと、下部の勉強・ランニングのチャート列が対応しています。</p>
+      <section class="overflow-hidden rounded-[14px] bg-ios-card shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="今月の記録">
+        <div class="flex items-start justify-between gap-[0.65rem] px-[1.05rem] pb-[0.65rem] pt-4">
+          <div class="min-w-0 flex-1">
+            <h2 class="m-0 text-xl font-bold tracking-tight text-black">今月の記録</h2>
+            <p class="mt-1 text-[0.95rem] font-medium text-ios-secondary">週ごとの達成率</p>
+          </div>
+          <aside class="shrink-0 pt-0.5 text-right" aria-label="先月の平均達成率74パーセント">
+            <p class="mb-1.5 text-[0.88rem] font-semibold tracking-wide text-ios-secondary">先月</p>
+            <p class="m-0 flex items-baseline justify-end text-[1.35rem] font-bold tabular-nums leading-none text-black [font-feature-settings:&quot;tnum&quot;_1]">
+              <span>74%</span>
+            </p>
+          </aside>
+        </div>
+        <div class="grid grid-cols-4 gap-[0.35rem] px-[1.05rem] pb-4" role="list" aria-label="週別達成率">
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-card shadow-[inset_0_0_0_2px_#000]" role="listitem">
+            <span class="text-[1.1rem] font-bold tabular-nums leading-none text-accent-streak">92%</span>
+            <span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">第1週</span>
+          </div>
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-1 py-[0.4rem]" role="listitem">
+            <span class="text-[1.1rem] font-bold tabular-nums leading-none text-black">68%</span>
+            <span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">第2週</span>
+          </div>
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-card shadow-[inset_0_0_0_2px_#000]" role="listitem">
+            <span class="text-[1.1rem] font-bold tabular-nums leading-none text-accent-streak">88%</span>
+            <span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">第3週</span>
+          </div>
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-1 py-[0.4rem]" role="listitem" title="週の詳細・入力へ（予定）">
+            <span class="text-base font-semibold leading-none text-ios-tertiary">—</span>
+            <span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">第4週</span>
+          </div>
+        </div>
+        <p class="mx-[1.05rem] mt-2 text-[0.84rem] font-medium leading-snug text-ios-secondary">「—」の週はタップして詳細や入力に進めます。</p>
+        <div class="mx-[1.05rem] h-px bg-ios-sep-light" aria-hidden="true"></div>
+        <div class="kpi-grid grid grid-cols-2 gap-0 border-t border-ios-sep-light" aria-label="今月のサマリー">
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-accent-streak">12</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">連続日数</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">11</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">月 · 全日達成</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">78%</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">月間達成率</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">+4</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">先月比（全日）</div>
+          </div>
+        </div>
+      </section>
+      <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間コメント（表示は毎回ランダムで2名）">
+        <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コメント</h2>
+        <div class="coach-slots divide-y divide-ios-sep-light"></div>
+      </section>
+      <div class="mt-4 flex flex-col gap-4">
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間勉強の目安">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強（月）</h3>
+          <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+            <div class="flex h-36 gap-1.5 m-0 items-stretch p-0" aria-label="週別勉強時間の棒イメージ">
+              <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start"><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:8%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:52%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:18%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:22%"></div></div>
+              <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start"><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:10%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:38%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:24%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:28%"></div></div>
+              <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start"><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:8%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:62%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:12%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:18%"></div></div>
+              <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start"><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:6%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:28%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:14%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:16%"></div></div>
+            </div>
+          <div class="mt-2 grid w-full grid-cols-4 gap-1.5 text-center text-[0.85rem] font-semibold tabular-nums text-ios-secondary">
+            <span class="min-w-0">第1週</span><span class="min-w-0">第2週</span><span class="min-w-0">第3週</span><span class="min-w-0">第4週</span>
+          </div>
+          </div>
+        </section>
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間体重">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">体重（月）</h3>
+          <svg class="weight-chart h-40 w-full" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="wgm" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#34c759" stop-opacity="0.2" />
+                <stop offset="100%" stop-color="#34c759" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <line class="axis-base" x1="18" y1="128" x2="382" y2="128" />
+            <polygon fill="url(#wgm)" points="20,58 120,64 220,70 320,76 380,82 380,128 20,128" />
+            <polyline points="20,58 120,64 220,70 320,76 380,82" />
+            <circle cx="20" cy="58" r="5" />
+            <circle cx="380" cy="82" r="5" />
+            <line class="goal-w" x1="18" y1="98" x2="382" y2="98" />
+            <text class="goal-w-text" x="378" y="92" text-anchor="end">目標 66.5</text>
+          </svg>
+          <div class="mt-2 flex justify-between text-base font-medium text-ios-secondary"><span>月初</span><span>月末</span></div>
+        </section>
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間ランニング">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">ランニング（月）</h3>
+          <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+            <div class="m-0 flex h-32 items-stretch gap-[5px] p-0" aria-label="週別距離イメージ">
+              <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:42%"></div>
+              <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:55%"></div>
+              <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:68%"></div>
+              <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:30%"></div>
+            </div>
+            <div class="pointer-events-none absolute left-0 right-0 z-[2] h-0 border-t-2 border-dashed border-chart-goal" style="bottom:45%">
+              <span class="absolute right-0 top-[-1.2rem] text-[0.82rem] font-bold tracking-wide text-chart-goal">週目標相当</span>
+            </div>
+          <div class="mt-2 grid w-full grid-cols-4 gap-1.5 text-center text-[0.85rem] font-semibold tabular-nums text-ios-secondary">
+            <span class="min-w-0">第1週</span><span class="min-w-0">第2週</span><span class="min-w-0">第3週</span><span class="min-w-0">第4週</span>
+          </div>
+          </div>
+        </section>
+      </div>
+      <footer class="mt-5 border-t border-transparent pt-[0.85rem] text-center text-[0.85rem] font-semibold text-ios-tertiary">サンプル表示 · 月間</footer>
+    </div>
+
+    <div class="view-panel" id="view-year" role="tabpanel" aria-labelledby="tab-year" data-view="year" hidden>
+      <div class="mb-[1.15rem] inline-flex items-center gap-[0.45rem] rounded-full bg-ios-card px-[0.85rem] py-2 text-[0.95rem] font-semibold tabular-nums text-ios-label shadow-[0_1px_0_rgba(60,60,67,0.12)]" title="対象年">
+        <span class="font-medium text-ios-secondary">対象</span>
+        <strong>2026年</strong>
+      </div>
+      <p class="-mt-1 mb-4 text-[0.84rem] font-medium leading-snug text-ios-secondary">※ 勉強・体重・ランニングのチャートは、横軸が1月〜4月（本日時点）までです。達成率タイルは通年のサンプル表示です。</p>
+      <section class="overflow-hidden rounded-[14px] bg-ios-card shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="今年の記録">
+        <div class="flex items-start justify-between gap-[0.65rem] px-[1.05rem] pb-[0.65rem] pt-4">
+          <div class="min-w-0 flex-1">
+            <h2 class="m-0 text-xl font-bold tracking-tight text-black">今年の記録</h2>
+            <p class="mt-1 text-[0.95rem] font-medium text-ios-secondary">月ごとの達成率</p>
+          </div>
+          <aside class="shrink-0 pt-0.5 text-right" aria-label="前年の平均達成率68パーセント">
+            <p class="mb-1.5 text-[0.88rem] font-semibold tracking-wide text-ios-secondary">前年</p>
+            <p class="m-0 flex items-baseline justify-end text-[1.35rem] font-bold tabular-nums leading-none text-black [font-feature-settings:&quot;tnum&quot;_1]">
+              <span>68%</span>
+            </p>
+          </aside>
+        </div>
+        <div class="rate-cols-6 grid grid-cols-6 gap-[0.35rem] px-[1.05rem] pb-4" role="list" aria-label="月別達成率">
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-card shadow-[inset_0_0_0_2px_#000]" role="listitem"><span class="text-[1.1rem] font-bold tabular-nums leading-none text-accent-streak">86%</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">1月</span></div>
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem"><span class="text-[1.1rem] font-bold tabular-nums leading-none text-black">71%</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">2月</span></div>
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-card shadow-[inset_0_0_0_2px_#000]" role="listitem"><span class="text-[1.1rem] font-bold tabular-nums leading-none text-accent-streak">90%</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">3月</span></div>
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-card shadow-[inset_0_0_0_2px_#000]" role="listitem"><span class="text-[1.1rem] font-bold tabular-nums leading-none text-accent-streak">78%</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">4月</span></div>
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem" title="月の詳細・入力へ（予定）"><span class="text-base font-semibold leading-none text-ios-tertiary">—</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">5月</span></div>
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem" title="月の詳細・入力へ（予定）"><span class="text-base font-semibold leading-none text-ios-tertiary">—</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">6月</span></div>
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem" title="月の詳細・入力へ（予定）"><span class="text-base font-semibold leading-none text-ios-tertiary">—</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">7月</span></div>
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem" title="月の詳細・入力へ（予定）"><span class="text-base font-semibold leading-none text-ios-tertiary">—</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">8月</span></div>
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem" title="月の詳細・入力へ（予定）"><span class="text-base font-semibold leading-none text-ios-tertiary">—</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">9月</span></div>
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem" title="月の詳細・入力へ（予定）"><span class="text-base font-semibold leading-none text-ios-tertiary">—</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">10月</span></div>
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem" title="月の詳細・入力へ（予定）"><span class="text-base font-semibold leading-none text-ios-tertiary">—</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">11月</span></div>
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem" title="月の詳細・入力へ（予定）"><span class="text-base font-semibold leading-none text-ios-tertiary">—</span><span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">12月</span></div>
+        </div>
+        <p class="mx-[1.05rem] mt-2 text-[0.84rem] font-medium leading-snug text-ios-secondary">「—」の月はタップして詳細や入力に進めます。</p>
+        <p class="mx-[1.05rem] mb-[0.85rem] text-[0.84rem] font-medium leading-snug text-ios-tertiary">達成率は週次入力からの集計イメージです。未入力の月は「—」です。</p>
+        <div class="mx-[1.05rem] h-px bg-ios-sep-light" aria-hidden="true"></div>
+        <div class="kpi-grid grid grid-cols-2 gap-0 border-t border-ios-sep-light" aria-label="今年のサマリー">
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-accent-streak">12</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">連続日数</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">38</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">年 · 全日達成</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">72%</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">年間達成率</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center" title="詳細を表示（予定）">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">+12</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">前年比（全日）</div>
+          </div>
+        </div>
+      </section>
+      <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間コメント（表示は毎回ランダムで2名）">
+        <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コメント</h2>
+        <div class="coach-slots divide-y divide-ios-sep-light"></div>
+      </section>
+      <div class="mt-4 flex flex-col gap-4">
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間勉強の目安">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強（年）</h3>
+          <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+            <div class="flex h-36 gap-1.5 m-0 items-stretch p-0" aria-label="月別勉強時間の棒イメージ">
+              <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start"><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:13%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:45%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:20%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:22%"></div></div>
+              <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start"><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:14%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:38%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:18%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:30%"></div></div>
+              <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start"><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:10%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:55%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:15%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:20%"></div></div>
+              <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start"><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-4" style="height:12%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-3" style="height:48%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-2" style="height:22%"></div><div class="w-full min-h-px shrink-0 self-end rounded-t-[3px] bg-study-1" style="height:18%"></div></div>
+            </div>
+          <div class="mt-2 grid w-full grid-cols-4 gap-1.5 text-center text-[0.82rem] font-semibold tabular-nums text-ios-secondary">
+            <span class="min-w-0">1月</span><span class="min-w-0">2月</span><span class="min-w-0">3月</span><span class="min-w-0">4月</span>
+          </div>
+          </div>
+        </section>
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間体重">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">体重（年）</h3>
+          <svg class="weight-chart h-40 w-full" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="wgy" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#34c759" stop-opacity="0.2" />
+                <stop offset="100%" stop-color="#34c759" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <line class="axis-base" x1="18" y1="128" x2="382" y2="128" />
+            <polygon fill="url(#wgy)" points="20,62 140,72 260,82 380,90 380,128 20,128" />
+            <polyline points="20,62 140,72 260,82 380,90" />
+            <circle cx="20" cy="62" r="5" />
+            <circle cx="380" cy="90" r="5" />
+            <line class="goal-w" x1="18" y1="102" x2="382" y2="102" />
+            <text class="goal-w-text" x="378" y="96" text-anchor="end">目標 66.5</text>
+          </svg>
+          <div class="mt-2 flex justify-between text-base font-medium text-ios-secondary"><span>年初</span><span>本日</span></div>
+        </section>
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間ランニング">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">ランニング（年）</h3>
+          <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+            <div class="m-0 flex h-32 items-stretch gap-[5px] p-0" aria-label="月別距離イメージ">
+              <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:48%"></div>
+              <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:42%"></div>
+              <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:58%"></div>
+              <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run" style="height:52%"></div>
+            </div>
+            <div class="pointer-events-none absolute left-0 right-0 z-[2] h-0 border-t-2 border-dashed border-chart-goal" style="bottom:50%">
+              <span class="absolute right-0 top-[-1.2rem] text-[0.82rem] font-bold tracking-wide text-chart-goal">月目標相当</span>
+            </div>
+          <div class="mt-2 grid w-full grid-cols-4 gap-1.5 text-center text-[0.82rem] font-semibold tabular-nums text-ios-secondary">
+            <span class="min-w-0">1月</span><span class="min-w-0">2月</span><span class="min-w-0">3月</span><span class="min-w-0">4月</span>
+          </div>
+          </div>
+        </section>
+      </div>
+      <footer class="mt-5 border-t border-transparent pt-[0.85rem] text-center text-[0.85rem] font-semibold text-ios-tertiary">サンプル表示 · 年間</footer>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var COACH_PATTERNS = [
+        {
+          id: 'secretary',
+          title: '専属秘書',
+          img: 'assets/coach-secretary.png',
+          text: '土曜のプログラミングが目立っています。水曜は短時間でも記録を残すと、後から振り返りやすくなります。'
+        },
+        {
+          id: 'trainer',
+          title: '専属トレーナー',
+          img: 'assets/coach-trainer.png',
+          text: 'ペースの上下より、睡眠と脚のコンディションを一言メモしておくと、体調との相関が見えやすくなります。'
+        },
+        {
+          id: 'spartan',
+          title: 'スパルタコーチ',
+          img: 'assets/coach-spartan.png',
+          text: '言い訳は不要。今日できる最低限を今すぐ書き切れ。記録がない日は「ゼロ」として扱う。'
+        },
+        {
+          id: 'mugi',
+          title: 'むぎちゃ',
+          img: 'assets/coach-mugi.png',
+          text: 'ふぁいとぉ〜。無理しすぎない日を一つ入れても、長く続くコツだよ。'
+        },
+        {
+          id: 'okoge',
+          title: 'おこげ',
+          img: 'assets/coach-okoge.png',
+          text: 'こげついた週もある。焦らず翌週で取り返すペース表だけ、一緒に見よ。'
+        }
+      ];
+
+      function pickTwoDistinctIndices(len) {
+        var i = Math.floor(Math.random() * len);
+        var j = Math.floor(Math.random() * (len - 1));
+        if (j >= i) j += 1;
+        return [i, j];
+      }
+
+      function renderCoachBlock(p) {
+        var wrap = document.createElement('div');
+        wrap.className = 'py-4';
+        wrap.setAttribute('data-coach', p.id);
+        var row = document.createElement('div');
+        row.className = 'flex gap-3';
+        var img = document.createElement('img');
+        img.className = 'h-[3.35rem] w-[3.35rem] shrink-0 rounded-full border border-ios-sep-light bg-ios-group object-cover';
+        img.src = p.img;
+        img.width = 54;
+        img.height = 54;
+        img.alt = p.title + '（サンプル）';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        var body = document.createElement('div');
+        body.className = 'min-w-0 flex-1';
+        var role = document.createElement('p');
+        role.className = 'mb-1.5 text-[0.88rem] font-bold tracking-wide text-ios-secondary';
+        role.textContent = p.title;
+        var txt = document.createElement('p');
+        txt.className = 'm-0 text-[1.02rem] font-medium leading-snug text-black';
+        txt.textContent = p.text;
+        body.appendChild(role);
+        body.appendChild(txt);
+        row.appendChild(img);
+        row.appendChild(body);
+        wrap.appendChild(row);
+        return wrap;
+      }
+
+      function mountRandomCoachComments() {
+        var pair = pickTwoDistinctIndices(COACH_PATTERNS.length);
+        var a = COACH_PATTERNS[pair[0]];
+        var b = COACH_PATTERNS[pair[1]];
+        document.querySelectorAll('.coach-slots').forEach(function (slot) {
+          slot.innerHTML = '';
+          slot.appendChild(renderCoachBlock(a));
+          slot.appendChild(renderCoachBlock(b));
+        });
+      }
+
+      mountRandomCoachComments();
+
+      var tabs = document.querySelectorAll('.view-switch [role="tab"]');
+      var panels = document.querySelectorAll('.view-panel');
+      var reportTitle = document.getElementById('report-nav-title');
+      var reportTitles = { week: '週間レポート', month: '月間レポート', year: '年間レポート' };
+
+      function selectView(view) {
+        tabs.forEach(function (t) {
+          var on = t.getAttribute('data-view') === view;
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        panels.forEach(function (p) {
+          p.hidden = p.getAttribute('data-view') !== view;
+        });
+        if (reportTitle && reportTitles[view]) {
+          reportTitle.textContent = reportTitles[view];
+          document.title = reportTitles[view];
+        }
+      }
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          selectView(tab.getAttribute('data-view'));
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
