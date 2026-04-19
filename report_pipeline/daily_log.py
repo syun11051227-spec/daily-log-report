@@ -7,11 +7,13 @@ import os
 import sys
 from pathlib import Path
 
+import httplib2
 import pandas as pd
 from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as UserCredentials
+from google_auth_httplib2 import AuthorizedHttp
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
@@ -47,10 +49,24 @@ def _credentials_from_service_account() -> Credentials | None:
     return None
 
 
+def _running_on_github_actions() -> bool:
+    return os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
+
+
 def get_credentials() -> Credentials:
     sa = _credentials_from_service_account()
     if sa is not None:
         return sa
+
+    if _running_on_github_actions():
+        print(
+            "エラー: GitHub Actions では GOOGLE_SERVICE_ACCOUNT_JSON（または "
+            "GOOGLE_APPLICATION_CREDENTIALS）が必須です。\n"
+            "OAuth のブラウザ認証は CI では使えません。Repository → Settings → "
+            "Secrets and variables → Actions を確認してください。",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     base = _base_dir()
     token_path = base / TOKEN_FILE
@@ -92,7 +108,9 @@ def get_credentials() -> Credentials:
 
 def fetch_values(spreadsheet_id: str) -> list[list[str]]:
     creds = get_credentials()
-    service = build("sheets", "v4", credentials=creds, cache_discovery=False)
+    # 既定のクライアントはタイムアウトがなく、ネットワーク停滞で長時間ブロックし得る
+    http = AuthorizedHttp(creds, http=httplib2.Http(timeout=90))
+    service = build("sheets", "v4", http=http, cache_discovery=False)
     result = (
         service.spreadsheets()
         .values()
