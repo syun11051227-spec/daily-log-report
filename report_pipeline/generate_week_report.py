@@ -19,7 +19,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from coach_comments import build_coach_cards
+from coach_comments import build_coach_cards, pick_coach_cards_for_display
 from daily_log import load_daily_log
 from week_aggregate import STUDY_HEX, STUDY_ITEMS_ORDER, build_week_report, svg_weight_polyline
 
@@ -76,7 +76,7 @@ def main() -> None:
     ]
     run_goal_bottom_pct = min(100.0, (5.0 / rep.run_max_km) * 100.0) if rep.run_max_km > 0 else 0.0
 
-    coach_cards = build_coach_cards(rep)
+    coach_cards = pick_coach_cards_for_display(build_coach_cards(rep))
 
     env = Environment(
         loader=FileSystemLoader(str(_base_dir() / "templates")),

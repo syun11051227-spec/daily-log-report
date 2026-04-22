@@ -14,12 +14,13 @@
 # ローカルから oauth2.googleapis.com に繋がらない場合: Actions → 本ワークフロー → Run workflow。
 # 成功後は Pages の URL、または run 画面下部の Artifacts「week-report-html」ZIP で HTML を取得できる。
 #
-# スケジュール: 毎日 22:00 UTC = 日本時間 翌日 07:00（夏時間はずれない前提の UTC 基準）
+# スケジュール: 毎日 17:00 UTC = 日本時間 翌日 02:00（JST・UTC+9）。GitHub cron は UTC のみ。
+# 中国時間 02:00 にしたい場合は "0 18 * * *"（前日 18:00 UTC = 翌 02:00 CST）に変更。
 name: Deploy weekly report to Pages
 
 on:
   schedule:
-    - cron: "0 22 * * *"
+    - cron: "0 17 * * *"
   workflow_dispatch:
 
 permissions:

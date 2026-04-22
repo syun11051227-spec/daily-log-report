@@ -14,6 +14,11 @@
 
 from __future__ import annotations
 
+import random
+
+# レポートに表示する人数（全5人のうちランダムに選ぶ）
+COACH_DISPLAY_COUNT = 2
+
 # Cursor / LLM 用・コーチ陣の振る舞いメモ（貼り付け用）
 COACH_LLM_RULES_SNIPPET = """
 コーチ陣の振る舞いについて：
@@ -202,3 +207,19 @@ def build_coach_cards(rep: WeekReport) -> list[CoachCard]:
     )
 
     return [uchan, hotaru, mugi, laoshi, shuzo]
+
+
+def pick_coach_cards_for_display(
+    all_cards: list[CoachCard],
+    count: int = COACH_DISPLAY_COUNT,
+) -> list[CoachCard]:
+    """全コーチの文を用意したうえで、count 名だけ重複なくランダム表示用に選ぶ。
+
+    表示順は build_coach_cards の定義順（内村→ホタル→むぎこげ→老師→修造）に揃える。
+    """
+    if len(all_cards) <= count:
+        return list(all_cards)
+    order = {c.slug: i for i, c in enumerate(all_cards)}
+    picked = random.sample(all_cards, count)
+    picked.sort(key=lambda c: order[c.slug])
+    return picked
