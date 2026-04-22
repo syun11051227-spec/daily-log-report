@@ -148,9 +148,22 @@
       </div>
     </section>
 
-    <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="コメント">
-      <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コメント</h2>
-      <p class="m-0 text-[1.02rem] font-medium leading-snug text-ios-secondary">AI による5キャラクター分のコメントは次のステップで接続予定です。</p>
+    <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="コーチコメント">
+      <h2 class="m-0 mb-[0.65rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コーチコメント</h2>
+      <p class="m-0 mb-[0.85rem] text-[0.92rem] font-medium leading-snug text-ios-secondary">週の記録から自動生成（ルールベース・5人）。</p>
+      <div class="flex flex-col gap-[0.75rem]">
+        {% for c in coach_cards %}
+        <article class="rounded-[12px] border border-ios-sep-light bg-ios-group/60 px-[0.85rem] py-[0.75rem]" data-coach="{{ c.slug }}">
+          <header class="mb-[0.35rem]">
+            <h3 class="m-0 text-[1.05rem] font-bold leading-tight text-black">{{ c.name }}</h3>
+            <p class="mt-0.5 m-0 text-[0.82rem] font-semibold leading-snug text-ios-secondary">{{ c.role }}</p>
+          </header>
+          {% for line in c.lines %}
+          <p class="{% if not loop.first %}mt-[0.45rem]{% else %}mt-0{% endif %} m-0 text-[1.02rem] font-medium leading-snug text-ios-label">{{ line }}</p>
+          {% endfor %}
+        </article>
+        {% endfor %}
+      </div>
     </section>
 
     <div class="mt-4 flex flex-col gap-4">

@@ -108,7 +108,11 @@ def get_credentials() -> Credentials:
 
 def fetch_values(spreadsheet_id: str) -> list[list[str]]:
     creds = get_credentials()
-    # 既定のクライアントはタイムアウトがなく、ネットワーク停滞で長時間ブロックし得る
+    # サービスアカウントの JWT 交換は httplib2 だと環境によって oauth2 接続が
+    # タイムアウトしやすい。先に requests ベースの Request でトークンを取る。
+    if not creds.valid:
+        creds.refresh(Request())
+    # Sheets API 本体（トークンは既に載っている想定）
     http = AuthorizedHttp(creds, http=httplib2.Http(timeout=90))
     service = build("sheets", "v4", http=http, cache_discovery=False)
     result = (
