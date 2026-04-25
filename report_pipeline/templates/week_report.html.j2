@@ -80,16 +80,38 @@
       font-size: 1rem;
       font-weight: 700;
     }
+    #view-switch-tabs [aria-selected="true"] {
+      color: #000000;
+      background: #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    }
+    .rate-tile-nav::after {
+      content: "›";
+      position: absolute;
+      right: 0.2rem;
+      bottom: 0.15rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+      line-height: 1;
+      color: rgba(60, 60, 67, 0.45);
+    }
   </style>
 </head>
 <body class="min-h-dvh bg-ios-group font-sans text-base leading-[1.35] tracking-tight text-black">
   <div class="mx-auto max-w-[375px] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))]">
     <header class="mb-4 flex flex-col gap-3">
       <div class="w-full min-w-0">
-        <h1 class="mb-0.5 text-[1.65rem] font-bold leading-[1.15] tracking-tight text-black">週間レポート</h1>
+        <h1 class="mb-0.5 text-[1.65rem] font-bold leading-[1.15] tracking-tight text-black" id="report-nav-title">週間レポート</h1>
         <p class="text-[1.05rem] font-semibold leading-tight text-ios-secondary">自己成長トラッキング</p>
       </div>
+      <div id="view-switch-tabs" class="view-switch flex w-full gap-0 rounded-[10px] bg-ios-fill-q p-[3px]" role="tablist" aria-label="表示期間の切り替え">
+        <button type="button" class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent px-2 py-2 text-[0.88rem] font-bold tracking-wide text-ios-secondary [-webkit-tap-highlight-color:transparent] aria-[selected=true]:bg-ios-card aria-[selected=true]:text-black aria-[selected=true]:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-streak" role="tab" id="tab-week" aria-controls="view-week" aria-selected="true" data-view="week">週間</button>
+        <button type="button" class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent px-2 py-2 text-[0.88rem] font-bold tracking-wide text-ios-secondary [-webkit-tap-highlight-color:transparent] aria-[selected=true]:bg-ios-card aria-[selected=true]:text-black aria-[selected=true]:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-streak" role="tab" id="tab-month" aria-controls="view-month" aria-selected="false" data-view="month">月間</button>
+        <button type="button" class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent px-2 py-2 text-[0.88rem] font-bold tracking-wide text-ios-secondary [-webkit-tap-highlight-color:transparent] aria-[selected=true]:bg-ios-card aria-[selected=true]:text-black aria-[selected=true]:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-streak" role="tab" id="tab-year" aria-controls="view-year" aria-selected="false" data-view="year">年間</button>
+      </div>
     </header>
+
+    <div class="view-panel" id="view-week" role="tabpanel" aria-labelledby="tab-week" data-view="week">
 
     <div class="mb-[1.15rem] inline-flex items-center gap-[0.45rem] rounded-full bg-ios-card px-[0.85rem] py-2 text-[0.95rem] font-semibold tabular-nums text-ios-label shadow-[0_1px_0_rgba(60,60,67,0.12)]" title="対象週">
       <span class="font-medium text-ios-secondary">対象</span>
@@ -241,6 +263,194 @@
     </div>
 
     <footer class="mt-5 border-t border-transparent pt-[0.85rem] text-center text-[0.82rem] font-semibold text-ios-tertiary">週の区切り: 月曜始まり · Asia/Shanghai</footer>
+
+    </div>
+
+    <div class="view-panel" id="view-month" role="tabpanel" aria-labelledby="tab-month" data-view="month" hidden>
+      <div class="mb-[1.15rem] inline-flex items-center gap-[0.45rem] rounded-full bg-ios-card px-[0.85rem] py-2 text-[0.95rem] font-semibold tabular-nums text-ios-label shadow-[0_1px_0_rgba(60,60,67,0.12)]" title="対象月">
+        <span class="font-medium text-ios-secondary">対象</span>
+        <strong>{{ mrep.label_month }}</strong>
+      </div>
+      <p class="-mt-1 mb-4 text-[0.84rem] font-medium leading-snug text-ios-secondary">達成率は週単位です。上の第n週タイルと、下部の勉強・ランニングのチャート列が対応しています。</p>
+      <section class="overflow-hidden rounded-[14px] bg-ios-card shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="今月の記録">
+        <div class="flex items-start justify-between gap-[0.65rem] px-[1.05rem] pb-[0.65rem] pt-4">
+          <div class="min-w-0 flex-1">
+            <h2 class="m-0 text-xl font-bold tracking-tight text-black">今月の記録</h2>
+            <p class="mt-1 text-[0.95rem] font-medium text-ios-secondary">週ごとの達成率</p>
+          </div>
+          <aside class="shrink-0 pt-0.5 text-right" aria-label="先月の平均達成率">
+            <p class="mb-1.5 text-[0.88rem] font-semibold tracking-wide text-ios-secondary">先月</p>
+            <p class="m-0 flex items-baseline justify-end text-[1.35rem] font-bold tabular-nums leading-none text-black [font-feature-settings:&quot;tnum&quot;_1]">
+              <span>{% if mrep.prev_month_avg_rate is not none %}{{ mrep.prev_month_avg_rate }}%{% else %}—{% endif %}</span>
+            </p>
+          </aside>
+        </div>
+        <div class="grid gap-[0.35rem] px-[1.05rem] pb-4" style="grid-template-columns: repeat({{ month_week_cols }}, minmax(0, 1fr));" role="list" aria-label="週別達成率">
+          {% for label, rate, hi in month_week_tiles %}
+          {% if rate is none %}
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-1 py-[0.4rem]" role="listitem">
+            <span class="text-base font-semibold leading-none text-ios-tertiary">—</span>
+            <span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">{{ label }}</span>
+          </div>
+          {% elif hi %}
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-card shadow-[inset_0_0_0_2px_#000]" role="listitem">
+            <span class="text-[1.1rem] font-bold tabular-nums leading-none text-accent-streak">{{ rate }}%</span>
+            <span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">{{ label }}</span>
+          </div>
+          {% else %}
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-1 py-[0.4rem]" role="listitem">
+            <span class="text-[1.1rem] font-bold tabular-nums leading-none text-black">{{ rate }}%</span>
+            <span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">{{ label }}</span>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        <p class="mx-[1.05rem] mt-2 text-[0.84rem] font-medium leading-snug text-ios-secondary">「—」の週は、まだ対象日が月内にない週です。</p>
+        <div class="mx-[1.05rem] h-px bg-ios-sep-light" aria-hidden="true"></div>
+        <div class="kpi-grid grid grid-cols-2 gap-0 border-t border-ios-sep-light" aria-label="今月のサマリー">
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-accent-streak">{{ mrep.streak_any_input }}</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">連続記録日数</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">{{ mrep.month_full_days }}</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">月 · 全日達成</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">{{ mrep.month_rate_pct }}%</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">月間達成率</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">{{ mrep.full_days_delta_label }}</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">先月比（全日）</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間コーチコメント">
+        <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コーチコメント</h2>
+        <div class="flex flex-col gap-[0.75rem]">
+          {% for c in coach_cards_month %}
+          <article class="rounded-[12px] border border-ios-sep-light bg-ios-group/60 px-[0.85rem] py-[0.75rem]" data-coach="{{ c.slug }}">
+            <header class="mb-[0.35rem]">
+              <h3 class="m-0 text-[1.05rem] font-bold leading-tight text-black">{{ c.name }}</h3>
+              <p class="mt-0.5 m-0 text-[0.82rem] font-semibold leading-snug text-ios-secondary">{{ c.role }}</p>
+            </header>
+            {% for line in c.lines %}
+            <p class="{% if not loop.first %}mt-[0.45rem]{% else %}mt-0{% endif %} m-0 text-[1.02rem] font-medium leading-snug text-ios-label">{{ line }}</p>
+            {% endfor %}
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <div class="mt-4 flex flex-col gap-4">
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間勉強">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強（月）</h3>
+          <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+            <div class="flex h-36 gap-1.5 m-0 items-stretch p-0" aria-label="週別勉強時間">
+              {% for col in month_study_cols %}
+              <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start">
+                {% for color, h in col|reverse %}
+                <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px]" style="height:{{ '%.2f'|format(h) }}%;background-color:{{ color }}"></div>
+                {% endfor %}
+              </div>
+              {% endfor %}
+            </div>
+            <div class="pointer-events-none absolute left-0 right-0 z-[2] h-0 border-t-2 border-dashed border-chart-goal" style="bottom:{{ '%.2f'|format(month_goal_line_bottom_pct) }}%">
+              <span class="absolute right-0 top-[-1.2rem] text-[0.82rem] font-bold tracking-wide text-chart-goal">目標 60 分/日×7</span>
+            </div>
+            <div class="mt-2 grid w-full gap-1.5 text-center text-[0.85rem] font-semibold tabular-nums text-ios-secondary" style="grid-template-columns: repeat({{ month_week_cols }}, minmax(0, 1fr));">
+              {% for label, rate, hi in month_week_tiles %}<span class="min-w-0">{{ label }}</span>{% endfor %}
+            </div>
+          </div>
+          <div class="mt-[0.85rem] grid grid-cols-2 gap-x-[0.65rem] gap-y-2 border-t border-ios-sep-light pt-[0.85rem] text-[0.95rem] font-semibold text-ios-label">
+            <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-1"></span>Duolingo</div>
+            <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-2"></span>中国語</div>
+            <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-3"></span>プログラミング</div>
+            <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-4"></span>ドリル</div>
+          </div>
+        </section>
+
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間体重">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">体重（月）</h3>
+          {% if month_weight_polyline %}
+          <svg class="weight-chart h-40 w-full" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="wgm" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#34c759" stop-opacity="0.2" />
+                <stop offset="100%" stop-color="#34c759" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <line class="axis-base" x1="18" y1="128" x2="382" y2="128" />
+            <polygon fill="url(#wgm)" points="{{ month_weight_polygon_fill }}" />
+            <polyline points="{{ month_weight_polyline }}" />
+            {{ month_weight_circles|safe }}
+            <line class="goal-w" x1="18" y1="{{ '%.1f'|format(month_weight_goal_y) }}" x2="382" y2="{{ '%.1f'|format(month_weight_goal_y) }}" />
+            <text class="goal-w-text" x="378" y="{{ '%.1f'|format(month_weight_goal_y - 6) }}" text-anchor="end">目標 68</text>
+          </svg>
+          <div class="mt-2 flex justify-between text-base font-medium text-ios-secondary">
+            <span>{% if mrep.weight_labels_month[0] %}月初 {{ mrep.weight_labels_month[0] }} kg{% else %}月初{% endif %}</span>
+            <span>{% if mrep.weight_labels_month[1] %}月末 {{ mrep.weight_labels_month[1] }} kg{% else %}月末{% endif %}</span>
+          </div>
+          {% else %}
+          <p class="m-0 text-base font-medium text-ios-secondary">この月は体重の記録がありません。</p>
+          {% endif %}
+        </section>
+
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間ランニング">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">ランニング（月）</h3>
+          <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+            <div class="m-0 flex h-32 items-stretch gap-[5px] p-0" aria-label="週別距離">
+              {% for h in month_run_bars %}
+              <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run {% if h <= 0 %}opacity-20{% endif %}" style="height:{{ '%.2f'|format(h) }}%"></div>
+              {% endfor %}
+            </div>
+            <div class="pointer-events-none absolute left-0 right-0 z-[2] h-0 border-t-2 border-dashed border-chart-goal" style="bottom:{{ '%.2f'|format(month_run_goal_bottom_pct) }}%">
+              <span class="absolute right-0 top-[-1.2rem] text-[0.82rem] font-bold tracking-wide text-chart-goal">週目標相当（35 km）</span>
+            </div>
+            <div class="mt-2 grid w-full gap-1.5 text-center text-[0.85rem] font-semibold tabular-nums text-ios-secondary" style="grid-template-columns: repeat({{ month_week_cols }}, minmax(0, 1fr));">
+              {% for label, rate, hi in month_week_tiles %}<span class="min-w-0">{{ label }}</span>{% endfor %}
+            </div>
+          </div>
+          <p class="mt-[0.7rem] text-base font-medium text-ios-secondary">
+            ペース <strong class="font-bold text-black">{% if mrep.pace_avg_min_per_km %}{{ mrep.pace_avg_min_per_km }}{% else %}—{% endif %}</strong>/km
+            <span class="font-bold text-chart-goal">　目標 {{ mrep.pace_goal_label }}</span>
+          </p>
+        </section>
+      </div>
+      <footer class="mt-5 border-t border-transparent pt-[0.85rem] text-center text-[0.82rem] font-semibold text-ios-tertiary">月の区切り: 暦月 · 週は月曜始まり · Asia/Shanghai</footer>
+    </div>
+
+    <div class="view-panel" id="view-year" role="tabpanel" aria-labelledby="tab-year" data-view="year" hidden>
+      <p class="m-0 rounded-[14px] bg-ios-card p-[1.05rem] text-center text-base font-medium text-ios-secondary shadow-[0_0.5px_0_rgba(60,60,67,0.12)]">年間サマリーは準備中です。</p>
+    </div>
+
   </div>
+  <script>
+    (function () {
+      var tabs = document.querySelectorAll("#view-switch-tabs [role=\"tab\"]");
+      var panels = document.querySelectorAll(".view-panel");
+      var title = document.getElementById("report-nav-title");
+      var titles = { week: "週間レポート", month: "月間レポート", year: "年間レポート" };
+      function show(view) {
+        tabs.forEach(function (t) {
+          var sel = t.getAttribute("data-view") === view;
+          t.setAttribute("aria-selected", sel ? "true" : "false");
+        });
+        panels.forEach(function (p) {
+          var on = p.getAttribute("data-view") === view;
+          p.hidden = !on;
+        });
+        if (title && titles[view]) title.textContent = titles[view];
+      }
+      tabs.forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          var v = tab.getAttribute("data-view");
+          if (v) show(v);
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

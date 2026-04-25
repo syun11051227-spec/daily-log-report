@@ -130,6 +130,75 @@ class DayTile:
     aria: str
 
 
+def month_bounds(d: date) -> tuple[date, date]:
+    """暦月の初日・末日（d と同じ年月）。"""
+    ms = date(d.year, d.month, 1)
+    if d.month == 12:
+        me = date(d.year, 12, 31)
+    else:
+        me = date(d.year, d.month + 1, 1) - timedelta(days=1)
+    return ms, me
+
+
+def prev_month_bounds(d: date) -> tuple[date, date]:
+    ms, _ = month_bounds(d)
+    last_prev = ms - timedelta(days=1)
+    return month_bounds(last_prev)
+
+
+def mondays_intersecting_month(month_start: date, month_end: date) -> list[date]:
+    """暦月と交わる月曜始まりの週（月の外にはみ出す週も含む）。"""
+    d = month_start - timedelta(days=month_start.weekday())
+    out: list[date] = []
+    while d <= month_end + timedelta(days=6):
+        week_end = d + timedelta(days=6)
+        if week_end >= month_start and d <= month_end:
+            out.append(d)
+        d += timedelta(days=7)
+    return out
+
+
+def eligible_days_week_in_month(
+    monday: date, month_start: date, month_end: date, as_of: date
+) -> list[date]:
+    days: list[date] = []
+    for i in range(7):
+        day = monday + timedelta(days=i)
+        if month_start <= day <= month_end and day <= as_of:
+            days.append(day)
+    return days
+
+
+def week_rate_in_month_fragment(
+    df: pd.DataFrame, monday: date, month_start: date, month_end: date, as_of: date
+) -> tuple[int | None, int, int]:
+    """月内かつ as_of 以前の日だけで、その週フラグメントの達成率（%）。対象日なしは None。"""
+    elig = eligible_days_week_in_month(monday, month_start, month_end, as_of)
+    if not elig:
+        return None, 0, 0
+    n_full = 0
+    for day in elig:
+        sub = df[df["date"].dt.date == day]
+        kind, _ = day_kind_for_tracked(sub)
+        if kind == "full":
+            n_full += 1
+    return int(round(100.0 * n_full / len(elig))), n_full, len(elig)
+
+
+def average_week_rates_for_calendar_month(
+    df: pd.DataFrame, month_start: date, month_end: date, as_cap: date
+) -> int | None:
+    """週タイルごとの達成率の平均（整数%）。有効な週がなければ None。"""
+    rates: list[int] = []
+    for m in mondays_intersecting_month(month_start, month_end):
+        r, _, den = week_rate_in_month_fragment(df, m, month_start, month_end, as_cap)
+        if den > 0 and r is not None:
+            rates.append(r)
+    if not rates:
+        return None
+    return int(round(sum(rates) / len(rates)))
+
+
 @dataclass
 class WeekReport:
     week_start: date
@@ -299,6 +368,183 @@ def build_week_report(df: pd.DataFrame, as_of: date | None = None) -> WeekReport
     )
 
 
+@dataclass
+class MonthReport:
+    """月次ビュー用（週タイル・週単位チャート）。"""
+
+    year: int
+    month: int
+    label_month: str
+    month_start: date
+    month_end: date
+    as_of: date
+    prev_month_avg_rate: int | None
+    week_monday_labels: list[str]  # 第1週 …
+    week_rates: list[int | None]  # None は「—」表示
+    week_rate_highlights: list[bool]  # 80%以上でアクセント
+    streak_any_input: int
+    month_full_days: int  # 月初〜 as_of（月内）
+    month_eligible_days: int
+    month_rate_pct: int
+    prev_month_full_days: int
+    full_days_delta_vs_prev: int
+    full_days_delta_label: str
+    study_by_week: list[dict[str, float]]
+    study_max_week_min: float
+    weight_series_weeks: list[float | None]
+    weight_labels_month: tuple[str | None, str | None]
+    run_km_by_week: list[float]
+    run_max_week_km: float
+    pace_avg_min_per_km: str | None
+    pace_goal_label: str
+
+
+def build_month_report(df: pd.DataFrame, as_of: date | None = None) -> MonthReport:
+    as_of = as_of if as_of is not None else today_in_tz()
+    df = prepare_df(df)
+    ms, me = month_bounds(as_of)
+    cap = min(me, as_of)
+
+    prev_ms, prev_me = prev_month_bounds(as_of)
+    prev_avg = average_week_rates_for_calendar_month(df, prev_ms, prev_me, prev_me)
+
+    mondays = mondays_intersecting_month(ms, me)
+    week_rates: list[int | None] = []
+    highlights: list[bool] = []
+    labels: list[str] = []
+    for i, m in enumerate(mondays, start=1):
+        r, _, den = week_rate_in_month_fragment(df, m, ms, me, as_of)
+        labels.append(f"第{i}週")
+        if den == 0:
+            week_rates.append(None)
+            highlights.append(False)
+        else:
+            week_rates.append(r)
+            highlights.append(r is not None and r >= 80)
+
+    month_full = full_days_in_range(df, ms, cap)
+    elig_n = (cap - ms).days + 1
+    month_rate = int(round(100.0 * month_full / elig_n)) if elig_n > 0 else 0
+
+    prev_full = full_days_in_range(df, prev_ms, prev_me)
+    delta = month_full - prev_full
+    if delta > 0:
+        dlabel = f"+{delta}"
+    elif delta < 0:
+        dlabel = str(delta)
+    else:
+        dlabel = "±0"
+
+    study_by_week: list[dict[str, float]] = []
+    raw_w_week: list[float | None] = []
+    run_km_by_week: list[float] = []
+
+    for m in mondays:
+        elig = eligible_days_week_in_month(m, ms, me, as_of)
+        per_item: dict[str, float] = {k: 0.0 for k in STUDY_ITEMS_ORDER}
+        week_km = 0.0
+        last_w: float | None = None
+        for day in elig:
+            sub = df[df["date"].dt.date == day]
+            study = sub[sub["category"].astype(str).str.strip() == "学習"]
+            for _, r in study.iterrows():
+                it = str(r.get("item", "")).strip()
+                if it in per_item:
+                    per_item[it] += float(r.get("_study_min", 0.0) or 0.0)
+            run = sub[
+                (sub["category"].astype(str).str.strip() == "運動")
+                & (sub["item"].astype(str).str.strip() == "ランニング")
+                & (sub["unit"].astype(str).str.strip() == "km")
+            ]
+            week_km += float(run["value"].fillna(0).sum()) if not run.empty else 0.0
+            wsub = sub[
+                (sub["item"].astype(str).str.strip() == "体重")
+                & (sub["unit"].astype(str).str.strip() == "kg")
+            ]
+            if not wsub.empty:
+                last = wsub.iloc[-1]
+                if pd.notna(last.get("value")):
+                    last_w = float(last["value"])
+        study_by_week.append(per_item)
+        raw_w_week.append(last_w)
+        run_km_by_week.append(week_km)
+
+    week_totals = [sum(w.values()) for w in study_by_week]
+    study_max_week = max(GOAL_STUDY_MIN_PER_DAY * 7, max(week_totals) if week_totals else GOAL_STUDY_MIN_PER_DAY * 7)
+
+    weight_series: list[float | None] = []
+    last: float | None = None
+    for v in raw_w_week:
+        if v is not None:
+            last = v
+        weight_series.append(last)
+
+    w_first = next((x for x in weight_series if x is not None), None)
+    w_last = next((x for x in reversed(weight_series) if x is not None), None)
+    weight_labels = (
+        f"{w_first:.1f}" if w_first is not None else None,
+        f"{w_last:.1f}" if w_last is not None else None,
+    )
+
+    run_max_week = max(GOAL_RUN_KM_PER_DAY * 7, max(run_km_by_week) if run_km_by_week else GOAL_RUN_KM_PER_DAY * 7)
+
+    run_month = df[(df["date"].dt.date >= ms) & (df["date"].dt.date <= cap)]
+    run_rows = run_month[
+        (run_month["category"].astype(str).str.strip() == "運動")
+        & (run_month["item"].astype(str).str.strip() == "ランニング")
+        & (run_month["unit"].astype(str).str.strip() == "km")
+    ]
+    pace_parts: list[tuple[float, float]] = []
+    for _, r in run_rows.iterrows():
+        km = float(r["value"]) if pd.notna(r.get("value")) else 0.0
+        if km <= 0:
+            continue
+        p = parse_pace_min_per_km(str(r.get("note_pace", "")))
+        if p is None:
+            continue
+        pace_parts.append((p, km))
+    pace_avg: str | None = None
+    if pace_parts:
+        num = sum(p * k for p, k in pace_parts)
+        den = sum(k for _, k in pace_parts)
+        avg = num / den if den > 0 else None
+        if avg is not None:
+            whole = int(avg)
+            sec = int(round((avg - whole) * 60))
+            if sec >= 60:
+                whole += 1
+                sec -= 60
+            pace_avg = f"{whole}:{sec:02d}"
+
+    return MonthReport(
+        year=as_of.year,
+        month=as_of.month,
+        label_month=f"{as_of.year}年{as_of.month}月",
+        month_start=ms,
+        month_end=me,
+        as_of=as_of,
+        prev_month_avg_rate=prev_avg,
+        week_monday_labels=labels,
+        week_rates=week_rates,
+        week_rate_highlights=highlights,
+        streak_any_input=streak_any_input_days(df, as_of),
+        month_full_days=month_full,
+        month_eligible_days=elig_n,
+        month_rate_pct=month_rate,
+        prev_month_full_days=prev_full,
+        full_days_delta_vs_prev=delta,
+        full_days_delta_label=dlabel,
+        study_by_week=study_by_week,
+        study_max_week_min=study_max_week,
+        weight_series_weeks=weight_series,
+        weight_labels_month=weight_labels,
+        run_km_by_week=run_km_by_week,
+        run_max_week_km=run_max_week,
+        pace_avg_min_per_km=pace_avg,
+        pace_goal_label="6:00",
+    )
+
+
 def svg_weight_polyline(weights: list[float | None]) -> tuple[str, str, str, float]:
     """viewBox 0 0 400 150 に合わせた polyline / polygon / goal y。"""
     xs = [20 + i * 60 for i in range(7)]
@@ -330,4 +576,47 @@ def svg_weight_polyline(weights: list[float | None]) -> tuple[str, str, str, flo
     circles = "\n".join(
         f'<circle cx="{x:.0f}" cy="{y:.1f}" r="5" />' for x, y in pts[:1] + pts[-1:]
     ) if len(pts) >= 2 else f'<circle cx="{pts[0][0]:.0f}" cy="{pts[0][1]:.1f}" r="5" />'
+    return poly, poly_fill, circles, goal_y
+
+
+def svg_weight_polyline_n(weights: list[float | None]) -> tuple[str, str, str, float]:
+    """週数可変の体重折れ線（viewBox 0 0 400 150）。"""
+    n = len(weights)
+    if n == 0:
+        return "", "", "", GOAL_WEIGHT_KG
+    if n == 1:
+        xs = [200.0]
+    else:
+        xs = [20 + i * (360.0 / (n - 1)) for i in range(n)]
+    vals = [w for w in weights if w is not None]
+    if not vals:
+        return "", "", "", GOAL_WEIGHT_KG
+    w_min = min(vals) - 0.5
+    w_max = max(vals) + 0.5
+    if w_max - w_min < 0.5:
+        w_max = w_min + 0.5
+    y_base = 128.0
+    y_top = 40.0
+
+    def y_for(w: float) -> float:
+        t = (w - w_min) / (w_max - w_min)
+        return y_base - t * (y_base - y_top)
+
+    pts: list[tuple[float, float]] = []
+    for x, w in zip(xs, weights):
+        if w is None:
+            continue
+        pts.append((x, y_for(w)))
+    if not pts:
+        return "", "", "", GOAL_WEIGHT_KG
+    poly = " ".join(f"{x:.0f},{y:.1f}" for x, y in pts)
+    poly_fill = poly + f" {pts[-1][0]:.0f},{y_base} {pts[0][0]:.0f},{y_base}"
+    goal_y = y_for(GOAL_WEIGHT_KG)
+    goal_y = max(y_top, min(y_base, goal_y))
+    if len(pts) >= 2:
+        circles = "\n".join(
+            f'<circle cx="{x:.0f}" cy="{y:.1f}" r="5" />' for x, y in pts[:1] + pts[-1:]
+        )
+    else:
+        circles = f'<circle cx="{pts[0][0]:.0f}" cy="{pts[0][1]:.1f}" r="5" />'
     return poly, poly_fill, circles, goal_y

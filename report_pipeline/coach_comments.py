@@ -33,6 +33,7 @@ from typing import NamedTuple
 from week_aggregate import (
     GOAL_RUN_KM_PER_DAY,
     GOAL_STUDY_MIN_PER_DAY,
+    MonthReport,
     STUDY_ITEMS_ORDER,
     WeekReport,
     parse_pace_min_per_km,
@@ -305,6 +306,151 @@ def build_coach_cards(rep: WeekReport) -> list[CoachCard]:
     )
 
     return [uchan, hotaru, mugi, laoshi, shuzo]
+
+
+def _month_study_totals(mrep: MonthReport) -> dict[str, float]:
+    acc = {k: 0.0 for k in STUDY_ITEMS_ORDER}
+    for w in mrep.study_by_week:
+        for k in STUDY_ITEMS_ORDER:
+            acc[k] += float(w.get(k, 0.0) or 0.0)
+    return acc
+
+
+def _month_run_total_km(mrep: MonthReport) -> float:
+    return float(sum(mrep.run_km_by_week))
+
+
+def build_coach_cards_month(mrep: MonthReport) -> list[CoachCard]:
+    """月次ビュー用のルールベース短コメント。"""
+    totals = _month_study_totals(mrep)
+    study_sum = sum(totals.values())
+    run_total = _month_run_total_km(mrep)
+    n_weeks = len(mrep.week_rates)
+    known_rates = [r for r in mrep.week_rates if r is not None]
+    avg_week = int(round(sum(known_rates) / len(known_rates))) if known_rates else 0
+
+    if mrep.month_rate_pct >= 80:
+        u1 = f"「{mrep.label_month}、全日達成のペースがいいですねぇ。月間{mrep.month_rate_pct}%、素晴らしいなぁ。」"
+    elif mrep.month_rate_pct >= 50:
+        u1 = f"「{mrep.label_month}は{mrep.month_rate_pct}%でしたねぇ。週ごとの波も含め、着実です。」"
+    elif mrep.month_rate_pct > 0:
+        u1 = f"「今月は{mrep.month_rate_pct}%でしたねぇ。芽は出ています。来月も一緒に。」"
+    else:
+        u1 = "「今月は記録が薄めでしたねぇ。体調優先で、また積み上げましょう。」"
+
+    if mrep.prev_month_avg_rate is not None and known_rates:
+        if avg_week > mrep.prev_month_avg_rate:
+            u2 = f"「週平均の達成率イメージが先月{mrep.prev_month_avg_rate}%より上向きですねぇ。」"
+        else:
+            u2 = f"「先月の週平均{mrep.prev_month_avg_rate}%も、比較の材料にしてくださいねぇ。」"
+    elif mrep.streak_any_input >= 7:
+        u2 = f"「連続{mrep.streak_any_input}日、手帳に触れていますねぇ。月をまたいでも続いています。」"
+    else:
+        u2 = "「月の区切りで一度立ち止まっても、次の一歩は小さくてよいですよ。」"
+
+    uchan = CoachCard(
+        slug="uchan",
+        name="内村さん",
+        role="伴走のリーダー · メンタル維持",
+        lines=(u1, u2),
+    )
+
+    if study_sum >= GOAL_STUDY_MIN_PER_DAY * 20:
+        h1 = f"「月合計{int(study_sum)}分…これは本気のログです！尊敬です〜。」"
+    elif study_sum > 0:
+        h1 = f"「勉強、月で{int(study_sum)}分。週ごとの積み上げ、ちゃんと見えてます。」"
+    else:
+        h1 = "「勉強ログは今月控えめ…休息もデータですよね〜。」"
+
+    if n_weeks >= 2 and known_rates:
+        h2 = f"「週タイルは{n_weeks}週分。ばらつき{min(known_rates)}〜{max(known_rates)}%くらいのイメージですね〜。」"
+    elif run_total >= GOAL_RUN_KM_PER_DAY * 10:
+        h2 = f"「ラン月計{run_total:.1f} km。脚、よく動いてます〜。」"
+    else:
+        h2 = "「次の月は、週タイルを一マスずつでも固めていきましょ。」"
+
+    hotaru = CoachCard(
+        slug="hotaru",
+        name="ホタル",
+        role="脱力系アナリスト",
+        lines=(h1, h2),
+    )
+
+    if mrep.month_full_days >= 15:
+        tail = "（今月フル多め！おやつの準備も万端！）"
+    elif mrep.month_full_days >= 1:
+        tail = f"（全日{mrep.month_full_days}日あるよ。すごい！）"
+    else:
+        tail = "（記録少なくても、むぎもこげも大好き！）"
+    mugi = CoachCard(
+        slug="mugikoge",
+        name="むぎちゃ ＆ おこげ",
+        role="癒やしの家族",
+        lines=("「むぎむー！」「こげげー！」", tail),
+    )
+
+    top = _top_study_item(totals)
+    if top and totals.get(top, 0) > 0:
+        l1 = f"「{top}が月ではトップですな。積み分は正直です。」"
+    else:
+        l1 = "「千里の道も一歩からですな。来月の種まき、一緒に。」"
+
+    l2 = f"「全日は今月{mrep.month_full_days}日。先月比は{mrep.full_days_delta_label}ですな。」"
+    if run_total > 0:
+        l3 = f"「走行距離は月で{run_total:.1f} km。距離は積めていますな。」"
+    else:
+        l3 = "「走行は控えめでも、次の一歩だけ考えればよいですな。」"
+
+    laoshi = CoachCard(
+        slug="laoshi",
+        name="老師",
+        role="駐在の賢者",
+        lines=(l1, l2, l3),
+    )
+
+    run_goal_weeks = sum(1 for km in mrep.run_km_by_week if km >= GOAL_RUN_KM_PER_DAY * 7)
+    if run_goal_weeks >= 2:
+        s1 = f"「週で目標距離を超えた週が{run_goal_weeks}回！脚は覚えている！」"
+    elif run_total >= GOAL_RUN_KM_PER_DAY * 5:
+        s1 = f"「月{run_total:.1f} km、十分動いてる！熱くなれよ！」"
+    else:
+        s1 = "「月の終わりは区切りに過ぎない！次、出せ！」"
+
+    if mrep.month_rate_pct >= 70:
+        s2 = "「月間の型、できてきた！その勢い、持ってけ！」"
+    else:
+        s2 = "「数字は点。線にするのはこれからだ！熱くなれ！」"
+
+    shuzo = CoachCard(
+        slug="shuzo",
+        name="修造コーチ",
+        role="太陽の応援団",
+        lines=(s1, s2),
+    )
+
+    return [uchan, hotaru, mugi, laoshi, shuzo]
+
+
+def month_summary_for_llm(mrep: MonthReport) -> dict:
+    totals = _month_study_totals(mrep)
+    return {
+        "label_month": mrep.label_month,
+        "month_rate_pct": mrep.month_rate_pct,
+        "prev_month_avg_week_rate_pct": mrep.prev_month_avg_rate,
+        "month_full_days": mrep.month_full_days,
+        "month_eligible_days": mrep.month_eligible_days,
+        "streak_any_input_days": mrep.streak_any_input,
+        "week_rates_pct": [r for r in mrep.week_rates],
+        "study_month_total_min": round(sum(totals.values()), 1),
+        "study_by_item_min": {k: round(float(totals.get(k, 0.0)), 1) for k in STUDY_ITEMS_ORDER},
+        "run_km_by_week": [round(float(x), 2) for x in mrep.run_km_by_week],
+        "run_total_km_month": round(_month_run_total_km(mrep), 2),
+        "pace_avg_per_km": mrep.pace_avg_min_per_km,
+        "pace_goal_per_km": mrep.pace_goal_label,
+        "weight_labels_kg": [mrep.weight_labels_month[0], mrep.weight_labels_month[1]],
+        "prev_month_full_days": mrep.prev_month_full_days,
+        "full_days_delta_vs_prev": mrep.full_days_delta_vs_prev,
+    }
 
 
 def week_summary_for_llm(rep: WeekReport) -> dict:

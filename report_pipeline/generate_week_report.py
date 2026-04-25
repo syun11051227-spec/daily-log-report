@@ -21,10 +21,22 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from coach_comments import build_coach_cards, pick_coach_cards_for_display
-from coach_llm_gemini import try_gemini_coach_cards
+from coach_comments import (
+    build_coach_cards,
+    build_coach_cards_month,
+    pick_coach_cards_for_display,
+)
+from coach_llm_gemini import try_gemini_coach_cards, try_gemini_coach_cards_month
 from daily_log import load_daily_log
-from week_aggregate import STUDY_HEX, STUDY_ITEMS_ORDER, build_week_report, svg_weight_polyline
+from week_aggregate import (
+    GOAL_RUN_KM_PER_DAY,
+    STUDY_HEX,
+    STUDY_ITEMS_ORDER,
+    build_month_report,
+    build_week_report,
+    svg_weight_polyline,
+    svg_weight_polyline_n,
+)
 
 
 def _base_dir() -> Path:
@@ -50,6 +62,7 @@ def main() -> None:
         sys.exit(1)
 
     rep = build_week_report(df)
+    mrep = build_month_report(df)
 
     # 勉強チャート用: 各日・各項目の高さ%（その日の合計に対する割合 × 列の高さ%）
     study_cols: list[list[tuple[str, float]]] = []
@@ -83,6 +96,51 @@ def main() -> None:
     if coach_cards is None:
         coach_cards = pick_coach_cards_for_display(build_coach_cards(rep))
 
+    month_study_cols: list[list[tuple[str, float]]] = []
+    for week in mrep.study_by_week:
+        total = sum(week.values())
+        col_h = (
+            min(100.0, (total / mrep.study_max_week_min) * 100.0)
+            if mrep.study_max_week_min > 0
+            else 0.0
+        )
+        segs = []
+        for item, color in zip(STUDY_ITEMS_ORDER, STUDY_HEX):
+            if total > 0 and col_h > 0:
+                frac = week[item] / total
+                h = max(0.0, min(100.0, col_h * frac))
+            else:
+                h = 0.0
+            segs.append((color, h))
+        month_study_cols.append(segs)
+
+    month_goal_line_bottom_pct = min(
+        100.0,
+        (60.0 * 7.0 / mrep.study_max_week_min) * 100.0 if mrep.study_max_week_min > 0 else 0.0,
+    )
+
+    mpoly, mpoly_fill, mcircles, mgoal_y = svg_weight_polyline_n(mrep.weight_series_weeks)
+
+    month_run_bars = [
+        min(100.0, (km / mrep.run_max_week_km) * 100.0) if mrep.run_max_week_km > 0 else 0.0
+        for km in mrep.run_km_by_week
+    ]
+    month_run_goal_bottom_pct = min(
+        100.0,
+        (GOAL_RUN_KM_PER_DAY * 7.0 / mrep.run_max_week_km) * 100.0
+        if mrep.run_max_week_km > 0
+        else 0.0,
+    )
+
+    coach_cards_month = try_gemini_coach_cards_month(mrep)
+    if coach_cards_month is None:
+        coach_cards_month = pick_coach_cards_for_display(build_coach_cards_month(mrep))
+
+    month_week_tiles = list(
+        zip(mrep.week_monday_labels, mrep.week_rates, mrep.week_rate_highlights)
+    )
+    month_week_cols = max(1, len(month_week_tiles))
+
     env = Environment(
         loader=FileSystemLoader(str(_base_dir() / "templates")),
         autoescape=select_autoescape(["html", "xml"]),
@@ -90,6 +148,7 @@ def main() -> None:
     tpl = env.get_template("week_report.html.j2")
     html = tpl.render(
         rep=rep,
+        mrep=mrep,
         study_cols=study_cols,
         goal_line_bottom_pct=goal_line_bottom_pct,
         weight_polyline=poly,
@@ -99,6 +158,17 @@ def main() -> None:
         run_bars=run_bars,
         run_goal_bottom_pct=run_goal_bottom_pct,
         coach_cards=coach_cards,
+        month_study_cols=month_study_cols,
+        month_goal_line_bottom_pct=month_goal_line_bottom_pct,
+        month_weight_polyline=mpoly,
+        month_weight_polygon_fill=mpoly_fill,
+        month_weight_circles=mcircles,
+        month_weight_goal_y=mgoal_y,
+        month_run_bars=month_run_bars,
+        month_run_goal_bottom_pct=month_run_goal_bottom_pct,
+        coach_cards_month=coach_cards_month,
+        month_week_tiles=month_week_tiles,
+        month_week_cols=month_week_cols,
     )
     out.write_text(html, encoding="utf-8")
     print(f"Wrote {out}")
