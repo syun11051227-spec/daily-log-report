@@ -17,9 +17,17 @@
 #
 # スケジュール: 毎日 17:00 UTC = 日本時間 翌日 02:00（JST・UTC+9）。GitHub cron は UTC のみ。
 # 中国時間 02:00 にしたい場合は "0 18 * * *"（前日 18:00 UTC = 翌 02:00 CST）に変更。
+#
+# push: main へレポート関連の変更が入ったらその都度 Pages を更新（コミット直後に反映確認しやすい）。
 name: Deploy weekly report to Pages
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "report_pipeline/**"
+      - ".github/workflows/deploy-report-pages.yml"
   schedule:
     - cron: "0 17 * * *"
   workflow_dispatch:
