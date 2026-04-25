@@ -307,6 +307,31 @@ def build_coach_cards(rep: WeekReport) -> list[CoachCard]:
     return [uchan, hotaru, mugi, laoshi, shuzo]
 
 
+def week_summary_for_llm(rep: WeekReport) -> dict:
+    """Gemini 等に渡す週次サマリー（数値は Python 側で確定させる）。"""
+    z = _signals(rep)
+    return {
+        "label_range": rep.label_range,
+        "week_rate_pct": rep.week_rate,
+        "prev_week_rate_pct": rep.prev_rate,
+        "week_full_days": rep.week_full_days,
+        "partial_days": z.partial_days,
+        "empty_days": z.empty_days,
+        "streak_any_input_days": rep.streak_any_input,
+        "study_week_total_min": round(z.study_sum, 1),
+        "study_by_item_min": {k: round(float(z.totals.get(k, 0.0)), 1) for k in STUDY_ITEMS_ORDER},
+        "days_study_goal_60min": z.days_study_goal,
+        "run_km_by_day": [round(float(x), 2) for x in rep.run_km_by_day],
+        "run_total_km_week": round(z.run_total_km, 2),
+        "run_days_ge_5km": z.run_goal_days,
+        "pace_avg_per_km": rep.pace_avg_min_per_km,
+        "pace_goal_per_km": rep.pace_goal_label,
+        "weight_labels_kg": [rep.weight_labels[0], rep.weight_labels[1]],
+        "weight_delta_kg": round(z.wdelta, 2) if z.wdelta is not None else None,
+        "month_full_days": rep.month_full_days,
+    }
+
+
 def pick_coach_cards_for_display(
     all_cards: list[CoachCard],
     count: int = COACH_DISPLAY_COUNT,

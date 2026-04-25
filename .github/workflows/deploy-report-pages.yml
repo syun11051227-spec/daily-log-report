@@ -4,6 +4,7 @@
 #   1. Settings → Secrets and variables → Actions
 #      - GOOGLE_SHEETS_SPREADSHEET_ID … スプレッドシート ID（文字列）
 #      - GOOGLE_SERVICE_ACCOUNT_JSON … サービスアカウント鍵 JSON の全文
+#      - GEMINI_API_KEY … 任意。[Google AI Studio](https://aistudio.google.com/app/apikey) の API キー（コーチ文を LLM 生成）
 #   2. Google Cloud: サービスアカウントを作成し JSON をダウンロード。
 #      スプレッドシートをその SA のメール（...iam.gserviceaccount.com）に共有（閲覧で可）。
 #   3. Settings → Pages → Build and deployment → Source: 「GitHub Actions」
@@ -51,6 +52,7 @@ jobs:
         env:
           GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           mkdir -p public
           python report_pipeline/generate_week_report.py -o public/index.html

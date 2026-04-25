@@ -6,6 +6,8 @@
   GOOGLE_SHEETS_SPREADSHEET_ID … 必須
   GOOGLE_SERVICE_ACCOUNT_JSON … 任意。設定時はサービスアカウントで読み取り（GitHub Actions 向け）
   GOOGLE_APPLICATION_CREDENTIALS … 任意。サービスアカウント JSON ファイルのパス
+  GEMINI_API_KEY または GOOGLE_API_KEY … 任意。設定時はコーチ文を Gemini で生成（失敗時はルールベースにフォールバック）
+  GEMINI_MODEL … 任意（既定: gemini-2.5-flash）
 
 例:
   python generate_week_report.py -o ../dist/week_report.html
@@ -20,6 +22,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from coach_comments import build_coach_cards, pick_coach_cards_for_display
+from coach_llm_gemini import try_gemini_coach_cards
 from daily_log import load_daily_log
 from week_aggregate import STUDY_HEX, STUDY_ITEMS_ORDER, build_week_report, svg_weight_polyline
 
@@ -76,7 +79,9 @@ def main() -> None:
     ]
     run_goal_bottom_pct = min(100.0, (5.0 / rep.run_max_km) * 100.0) if rep.run_max_km > 0 else 0.0
 
-    coach_cards = pick_coach_cards_for_display(build_coach_cards(rep))
+    coach_cards = try_gemini_coach_cards(rep)
+    if coach_cards is None:
+        coach_cards = pick_coach_cards_for_display(build_coach_cards(rep))
 
     env = Environment(
         loader=FileSystemLoader(str(_base_dir() / "templates")),
