@@ -97,8 +97,18 @@ def any_input_on_day(df: pd.DataFrame, d: date) -> bool:
 
 
 def streak_any_input_days(df: pd.DataFrame, end: date) -> int:
-    """end から遡り、いずれか1行でもある日を連続カウント。"""
+    """end 以前で、直近の「何かしら1行でもある日」から遡った連続日数。
+
+    end 当日だけ未記入（例: 日曜の朝・当日分未送信）のときに 0 にならないよう、
+    まず手前の入力日まで日付を戻してから連続を数える。
+    手前に入力が見つからない範囲は end から最大730日まで遡る。
+    """
+    limit = end - timedelta(days=730)
     d = end
+    while d >= limit and not any_input_on_day(df, d):
+        d -= timedelta(days=1)
+    if d < limit or not any_input_on_day(df, d):
+        return 0
     n = 0
     while any_input_on_day(df, d):
         n += 1
