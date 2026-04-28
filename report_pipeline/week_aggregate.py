@@ -36,6 +36,17 @@ def monday_week(d: date) -> tuple[date, date]:
     return monday, monday + timedelta(days=6)
 
 
+def week_report_display_anchor(today: date) -> date:
+    """週レポートに載せる7日間を決めるための基準日。
+
+    月曜は「今週の月〜日」ではなく、直前に終わった週（先週日曜まで）を見る。
+    火曜〜日曜は従来どおり ``today`` を含む週。
+    """
+    if today.weekday() == 0:
+        return today - timedelta(days=1)
+    return today
+
+
 def minutes_from_row(unit: str, value: float) -> float:
     u = str(unit).strip()
     if u == "分":
@@ -242,9 +253,11 @@ def prepare_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_week_report(df: pd.DataFrame, as_of: date | None = None) -> WeekReport:
-    as_of = as_of if as_of is not None else today_in_tz()
+    """as_of は「今日」（省略時は Asia/Shanghai の本日）。月曜は表示対象週が先週になる。"""
+    today = as_of if as_of is not None else today_in_tz()
     df = prepare_df(df)
-    mon, sun = monday_week(as_of)
+    week_anchor = week_report_display_anchor(today)
+    mon, sun = monday_week(week_anchor)
     prev_mon, _prev_sun = monday_week(mon - timedelta(days=1))
 
     wd_labels = ["月", "火", "水", "木", "金", "土", "日"]
@@ -345,11 +358,11 @@ def build_week_report(df: pd.DataFrame, as_of: date | None = None) -> WeekReport
     prev_full = full_days_in_range(df, prev_mon, prev_mon + timedelta(days=6))
     week_full = full_days_in_range(df, mon, sun)
 
-    month_start = date(as_of.year, as_of.month, 1)
-    if as_of.month == 12:
-        month_end = date(as_of.year, 12, 31)
+    month_start = date(today.year, today.month, 1)
+    if today.month == 12:
+        month_end = date(today.year, 12, 31)
     else:
-        month_end = date(as_of.year, as_of.month + 1, 1) - timedelta(days=1)
+        month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
     month_full = full_days_in_range(df, month_start, month_end)
     month_total = (month_end - month_start).days + 1
 
@@ -362,7 +375,7 @@ def build_week_report(df: pd.DataFrame, as_of: date | None = None) -> WeekReport
         prev_full_days=prev_full,
         prev_rate=week_rate_percent(prev_full),
         tiles=tiles,
-        streak_any_input=streak_any_input_days(df, as_of),
+        streak_any_input=streak_any_input_days(df, today),
         week_full_days=week_full,
         month_full_days=month_full,
         month_days_total=month_total,

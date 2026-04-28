@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-週次レポートを HTML として書き出す（実行日＝今日、Asia/Shanghai の週境界）。
+週次レポートを HTML として書き出す（実行日＝今日、Asia/Shanghai の週境界。
+月曜は「今週」ではなく先週月〜日を表示する）。
 
 環境変数:
   GOOGLE_SHEETS_SPREADSHEET_ID … 必須
