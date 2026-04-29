@@ -232,8 +232,8 @@ def build_coach_cards(rep: WeekReport) -> list[CoachCard]:
         tail = "（フルばっかり！しっぽブンブン！おやつも忘れないでね！）"
     elif rep.week_full_days >= 1:
         tail = f"（★の日も{z.partial_days}日あるよ。おうちでずっと待ってた！）"
-    elif z.streak_any_input >= 1:
-        tail = f"（連続{z.streak_any_input}日なにか書いてるの、すごい！むぎむー！）"
+    elif rep.streak_any_input >= 1:
+        tail = f"（連続{rep.streak_any_input}日なにか書いてるの、すごい！むぎむー！）"
     else:
         tail = "（記録少なくても大好き！むぎもこげも応援してる！）"
     mugi = CoachCard(
