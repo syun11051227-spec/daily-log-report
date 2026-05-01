@@ -643,3 +643,209 @@ def svg_weight_polyline_n(weights: list[float | None]) -> tuple[str, str, str, f
     else:
         circles = f'<circle cx="{pts[0][0]:.0f}" cy="{pts[0][1]:.1f}" r="5" />'
     return poly, poly_fill, circles, goal_y
+
+
+# ---------------------------------------------------------------------------
+# 年次集計
+# ---------------------------------------------------------------------------
+
+def _month_bounds_for(year: int, month: int) -> tuple[date, date]:
+    ms = date(year, month, 1)
+    if month == 12:
+        me = date(year, 12, 31)
+    else:
+        me = date(year, month + 1, 1) - timedelta(days=1)
+    return ms, me
+
+
+@dataclass
+class YearReport:
+    """年次ビュー用（月タイル・月単位チャート）。"""
+
+    year: int
+    label_year: str
+    as_of: date
+    prev_year_avg_rate: int | None
+    month_tiles: list[tuple[str, int | None, bool]]  # (label, rate|None, highlight≥80%)
+    streak_any_input: int
+    year_full_days: int
+    year_eligible_days: int
+    year_rate_pct: int
+    prev_year_full_days: int
+    full_days_delta_label: str
+    study_by_month: list[dict[str, float]]  # 12 entries (1月〜12月)
+    study_max_month_min: float
+    active_months: int  # 1..today.month（データがある可能性のある月数）
+    weight_series_months: list[float | None]  # active_months entries
+    weight_labels_year: tuple[str | None, str | None]
+    run_km_by_month: list[float]  # 12 entries
+    run_max_month_km: float
+    pace_avg_min_per_km: str | None
+    pace_goal_label: str
+
+
+def build_year_report(df: pd.DataFrame, as_of: date | None = None) -> YearReport:
+    today = as_of if as_of is not None else today_in_tz()
+    df = prepare_df(df)
+    year = today.year
+    active_months = today.month  # 1..active_months に実データが入り得る
+
+    # 月タイル 1〜12
+    month_tiles: list[tuple[str, int | None, bool]] = []
+    for m in range(1, 13):
+        ms, me = _month_bounds_for(year, m)
+        label = f"{m}月"
+        if ms > today:
+            month_tiles.append((label, None, False))
+        else:
+            cap = min(me, today)
+            rate = average_week_rates_for_calendar_month(df, ms, me, cap)
+            if rate is None:
+                month_tiles.append((label, None, False))
+            else:
+                month_tiles.append((label, rate, rate >= 80))
+
+    # 年間 KPI
+    year_start = date(year, 1, 1)
+    year_full = full_days_in_range(df, year_start, today)
+    year_elig = (today - year_start).days + 1
+    year_rate = int(round(100.0 * year_full / year_elig)) if year_elig > 0 else 0
+
+    prev_year_start = date(year - 1, 1, 1)
+    prev_year_end = date(year - 1, 12, 31)
+    prev_year_full = full_days_in_range(df, prev_year_start, prev_year_end)
+    delta = year_full - prev_year_full
+    dlabel = f"+{delta}" if delta > 0 else ("±0" if delta == 0 else str(delta))
+
+    # 前年月別平均
+    prev_rates: list[int] = []
+    for m in range(1, 13):
+        pms, pme = _month_bounds_for(year - 1, m)
+        r = average_week_rates_for_calendar_month(df, pms, pme, pme)
+        if r is not None:
+            prev_rates.append(r)
+    prev_year_avg = int(round(sum(prev_rates) / len(prev_rates))) if prev_rates else None
+
+    # 勉強（月別）
+    study_by_month: list[dict[str, float]] = []
+    for m in range(1, 13):
+        ms, me = _month_bounds_for(year, m)
+        per_item: dict[str, float] = {k: 0.0 for k in STUDY_ITEMS_ORDER}
+        if ms <= today:
+            cap = min(me, today)
+            mdf = df[(df["date"].dt.date >= ms) & (df["date"].dt.date <= cap)]
+            study = mdf[mdf["category"].astype(str).str.strip() == "学習"]
+            for _, r in study.iterrows():
+                it = str(r.get("item", "")).strip()
+                if it in per_item:
+                    per_item[it] += float(r.get("_study_min", 0.0) or 0.0)
+        study_by_month.append(per_item)
+
+    active_totals = [sum(study_by_month[m - 1].values()) for m in range(1, active_months + 1)]
+    study_max_month = max(
+        GOAL_STUDY_MIN_PER_DAY * 30,
+        max(active_totals) if active_totals else GOAL_STUDY_MIN_PER_DAY * 30,
+    )
+
+    # 体重（月末の最終値、active_months 分）
+    raw_w_month: list[float | None] = []
+    for m in range(1, active_months + 1):
+        ms, me = _month_bounds_for(year, m)
+        cap = min(me, today)
+        mdf = df[(df["date"].dt.date >= ms) & (df["date"].dt.date <= cap)]
+        wsub = mdf[
+            (mdf["item"].astype(str).str.strip() == "体重")
+            & (mdf["unit"].astype(str).str.strip() == "kg")
+        ]
+        if wsub.empty:
+            raw_w_month.append(None)
+        else:
+            last = wsub.iloc[-1]
+            raw_w_month.append(float(last["value"]) if pd.notna(last.get("value")) else None)
+
+    weight_series: list[float | None] = []
+    last_w: float | None = None
+    for v in raw_w_month:
+        if v is not None:
+            last_w = v
+        weight_series.append(last_w)
+    w_first = next((x for x in weight_series if x is not None), None)
+    w_last = next((x for x in reversed(weight_series) if x is not None), None)
+    weight_labels = (
+        f"{w_first:.1f}" if w_first is not None else None,
+        f"{w_last:.1f}" if w_last is not None else None,
+    )
+
+    # ランニング（月別）
+    run_km_by_month: list[float] = []
+    for m in range(1, 13):
+        ms, me = _month_bounds_for(year, m)
+        if ms > today:
+            run_km_by_month.append(0.0)
+        else:
+            cap = min(me, today)
+            mdf = df[(df["date"].dt.date >= ms) & (df["date"].dt.date <= cap)]
+            run = mdf[
+                (mdf["category"].astype(str).str.strip() == "運動")
+                & (mdf["item"].astype(str).str.strip() == "ランニング")
+                & (mdf["unit"].astype(str).str.strip() == "km")
+            ]
+            run_km_by_month.append(float(run["value"].fillna(0).sum()) if not run.empty else 0.0)
+
+    active_run = run_km_by_month[:active_months]
+    run_max_month = max(
+        GOAL_RUN_KM_PER_DAY * 30,
+        max(active_run) if active_run else GOAL_RUN_KM_PER_DAY * 30,
+    )
+
+    # 年間ペース平均
+    year_df = df[(df["date"].dt.date >= year_start) & (df["date"].dt.date <= today)]
+    run_rows = year_df[
+        (year_df["category"].astype(str).str.strip() == "運動")
+        & (year_df["item"].astype(str).str.strip() == "ランニング")
+        & (year_df["unit"].astype(str).str.strip() == "km")
+    ]
+    pace_parts: list[tuple[float, float]] = []
+    for _, r in run_rows.iterrows():
+        km = float(r["value"]) if pd.notna(r.get("value")) else 0.0
+        if km <= 0:
+            continue
+        p = parse_pace_min_per_km(str(r.get("note_pace", "")))
+        if p is None:
+            continue
+        pace_parts.append((p, km))
+    pace_avg: str | None = None
+    if pace_parts:
+        num = sum(p * k for p, k in pace_parts)
+        den = sum(k for _, k in pace_parts)
+        avg = num / den if den > 0 else None
+        if avg is not None:
+            whole = int(avg)
+            sec = int(round((avg - whole) * 60))
+            if sec >= 60:
+                whole += 1
+                sec -= 60
+            pace_avg = f"{whole}:{sec:02d}"
+
+    return YearReport(
+        year=year,
+        label_year=f"{year}年",
+        as_of=today,
+        prev_year_avg_rate=prev_year_avg,
+        month_tiles=month_tiles,
+        streak_any_input=streak_any_input_days(df, today),
+        year_full_days=year_full,
+        year_eligible_days=year_elig,
+        year_rate_pct=year_rate,
+        prev_year_full_days=prev_year_full,
+        full_days_delta_label=dlabel,
+        study_by_month=study_by_month,
+        study_max_month_min=study_max_month,
+        active_months=active_months,
+        weight_series_months=weight_series,
+        weight_labels_year=weight_labels,
+        run_km_by_month=run_km_by_month,
+        run_max_month_km=run_max_month,
+        pace_avg_min_per_km=pace_avg,
+        pace_goal_label="6:00",
+    )

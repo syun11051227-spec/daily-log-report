@@ -36,6 +36,7 @@ from week_aggregate import (
     MonthReport,
     STUDY_ITEMS_ORDER,
     WeekReport,
+    YearReport,
     parse_pace_min_per_km,
 )
 
@@ -450,6 +451,140 @@ def month_summary_for_llm(mrep: MonthReport) -> dict:
         "weight_labels_kg": [mrep.weight_labels_month[0], mrep.weight_labels_month[1]],
         "prev_month_full_days": mrep.prev_month_full_days,
         "full_days_delta_vs_prev": mrep.full_days_delta_vs_prev,
+    }
+
+
+def _year_study_totals(yrep: YearReport) -> dict[str, float]:
+    acc = {k: 0.0 for k in STUDY_ITEMS_ORDER}
+    for m in yrep.study_by_month:
+        for k in STUDY_ITEMS_ORDER:
+            acc[k] += float(m.get(k, 0.0) or 0.0)
+    return acc
+
+
+def _year_run_total_km(yrep: YearReport) -> float:
+    return float(sum(yrep.run_km_by_month[: yrep.active_months]))
+
+
+def build_coach_cards_year(yrep: YearReport) -> list[CoachCard]:
+    """年次ビュー用のルールベース短コメント。"""
+    totals = _year_study_totals(yrep)
+    study_sum = sum(totals.values())
+    run_total = _year_run_total_km(yrep)
+    known_rates = [r for _, r, _ in yrep.month_tiles if r is not None]
+    avg_month = int(round(sum(known_rates) / len(known_rates))) if known_rates else 0
+
+    if yrep.year_rate_pct >= 80:
+        u1 = f"「{yrep.label_year}の達成率{yrep.year_rate_pct}%、素晴らしいペースですねぇ。」"
+    elif yrep.year_rate_pct >= 50:
+        u1 = f"「{yrep.label_year}は{yrep.year_rate_pct}%。月ごとの波も含め、着実に積んでいますねぇ。」"
+    else:
+        u1 = f"「今年はここまで{yrep.year_rate_pct}%でしたねぇ。残りの月で挽回できますよ。」"
+
+    if yrep.prev_year_avg_rate is not None and known_rates:
+        if avg_month >= yrep.prev_year_avg_rate:
+            u2 = f"「月平均の傾向が前年({yrep.prev_year_avg_rate}%)と同等以上ですねぇ。継続の力です。」"
+        else:
+            u2 = f"「前年の月平均{yrep.prev_year_avg_rate}%を参考に、後半を整えていきましょう。」"
+    elif yrep.streak_any_input >= 14:
+        u2 = f"「連続{yrep.streak_any_input}日、記録を続けていますねぇ。習慣になっていますよ。」"
+    else:
+        u2 = "「一年を通じて、一歩ずつ積み上げましょう。焦らなくて大丈夫ですよ。」"
+
+    uchan = CoachCard(
+        slug="uchan", name="内村さん", role="伴走のリーダー · メンタル維持", lines=(u1, u2)
+    )
+
+    if study_sum >= GOAL_STUDY_MIN_PER_DAY * 60:
+        h1 = f"「年間{int(study_sum)}分…これ本格的なログですよ？尊敬の域ですね〜。」"
+    elif study_sum > 0:
+        h1 = f"「年計{int(study_sum)}分。月平均にすると{int(study_sum / yrep.active_months):.0f}分です〜。」"
+    else:
+        h1 = "「勉強ログ、今年は控えめ…リスタートはいつでも遅くないですよ〜。」"
+
+    if len(known_rates) >= 3:
+        h2 = f"「月タイルが{len(known_rates)}か月分そろってきました。最高{max(known_rates)}%・最低{min(known_rates)}%の幅ですね〜。」"
+    elif run_total >= GOAL_RUN_KM_PER_DAY * 30:
+        h2 = f"「年間走行{run_total:.1f} km…データ的にすごいです〜。」"
+    else:
+        h2 = "「後半の月タイルが埋まると、年間のグラフが見えてきますよ〜。」"
+
+    hotaru = CoachCard(
+        slug="hotaru", name="ホタル", role="脱力系アナリスト", lines=(h1, h2)
+    )
+
+    if yrep.year_full_days >= 100:
+        tail = f"（今年{yrep.year_full_days}日もフル！しっぽびゅんびゅん！）"
+    elif yrep.year_full_days >= 1:
+        tail = f"（今年フル{yrep.year_full_days}日！すごいね！）"
+    else:
+        tail = "（記録少なくてもむぎもこげも大好き！一緒にがんばろ！）"
+    mugi = CoachCard(
+        slug="mugikoge",
+        name="むぎちゃ ＆ おこげ",
+        role="癒やしの家族",
+        lines=("「むぎむー！」「こげげー！」", tail),
+    )
+
+    top = _top_study_item(totals)
+    if top and totals.get(top, 0) > 0:
+        l1 = f"「{top}が今年の首位ですな。長期で積むものは、最後に本物になります。」"
+    else:
+        l1 = "「一年の仕事は、毎日の小さな積み重ねですな。千里の道も一歩から。」"
+
+    l2 = f"「年間フルは{yrep.year_full_days}日。前年比{yrep.full_days_delta_label}ですな。着実に刻んでいます。」"
+    if run_total > 0:
+        l3 = f"「走行距離は年で{run_total:.1f} km。体は正直ですな。」"
+    else:
+        l3 = "「走ることも、語学も、年単位で見れば必ず形になりますな。」"
+
+    laoshi = CoachCard(
+        slug="laoshi", name="老師", role="駐在の賢者", lines=(l1, l2, l3)
+    )
+
+    run_goal_months = sum(
+        1 for km in yrep.run_km_by_month[: yrep.active_months]
+        if km >= GOAL_RUN_KM_PER_DAY * 28
+    )
+    if run_goal_months >= 2:
+        s1 = f"「目標距離超えの月が{run_goal_months}か月！本物の脚になってきた！熱くなれよ！」"
+    elif run_total >= GOAL_RUN_KM_PER_DAY * 30:
+        s1 = f"「年間{run_total:.0f} km走ってる！数字が語ってる！お前はタイヤだ！」"
+    else:
+        s1 = "「年の後半、脚に火をつけろ！一発出せ！熱くなれよ！」"
+
+    if yrep.year_rate_pct >= 70:
+        s2 = "「年間の型、できてきた！このペースで突っ走れ！」"
+    else:
+        s2 = f"「残り{12 - yrep.active_months}か月、ここから全部ひっくり返せ！やれる！」"
+
+    shuzo = CoachCard(
+        slug="shuzo", name="修造コーチ", role="太陽の応援団", lines=(s1, s2)
+    )
+
+    return [uchan, hotaru, mugi, laoshi, shuzo]
+
+
+def year_summary_for_llm(yrep: YearReport) -> dict:
+    totals = _year_study_totals(yrep)
+    return {
+        "label_year": yrep.label_year,
+        "year_rate_pct": yrep.year_rate_pct,
+        "prev_year_avg_rate_pct": yrep.prev_year_avg_rate,
+        "year_full_days": yrep.year_full_days,
+        "year_eligible_days": yrep.year_eligible_days,
+        "streak_any_input_days": yrep.streak_any_input,
+        "month_rates_pct": [r for _, r, _ in yrep.month_tiles],
+        "active_months": yrep.active_months,
+        "study_year_total_min": round(sum(totals.values()), 1),
+        "study_by_item_min": {k: round(float(totals.get(k, 0.0)), 1) for k in STUDY_ITEMS_ORDER},
+        "run_km_by_month": [round(float(x), 2) for x in yrep.run_km_by_month[: yrep.active_months]],
+        "run_total_km_year": round(_year_run_total_km(yrep), 2),
+        "pace_avg_per_km": yrep.pace_avg_min_per_km,
+        "pace_goal_per_km": yrep.pace_goal_label,
+        "weight_labels_kg": [yrep.weight_labels_year[0], yrep.weight_labels_year[1]],
+        "prev_year_full_days": yrep.prev_year_full_days,
+        "full_days_delta_vs_prev": yrep.full_days_delta_label,
     }
 
 

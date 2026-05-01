@@ -25,9 +25,14 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from coach_comments import (
     build_coach_cards,
     build_coach_cards_month,
+    build_coach_cards_year,
     pick_coach_cards_for_display,
 )
-from coach_llm_gemini import try_gemini_coach_cards, try_gemini_coach_cards_month
+from coach_llm_gemini import (
+    try_gemini_coach_cards,
+    try_gemini_coach_cards_month,
+    try_gemini_coach_cards_year,
+)
 from daily_log import load_daily_log
 from week_aggregate import (
     GOAL_RUN_KM_PER_DAY,
@@ -35,6 +40,7 @@ from week_aggregate import (
     STUDY_ITEMS_ORDER,
     build_month_report,
     build_week_report,
+    build_year_report,
     svg_weight_polyline,
     svg_weight_polyline_n,
 )
@@ -64,6 +70,7 @@ def main() -> None:
 
     rep = build_week_report(df)
     mrep = build_month_report(df)
+    yrep = build_year_report(df)
 
     # 勉強チャート用: 各日・各項目の高さ%（その日の合計に対する割合 × 列の高さ%）
     study_cols: list[list[tuple[str, float]]] = []
@@ -142,6 +149,51 @@ def main() -> None:
     )
     month_week_cols = max(1, len(month_week_tiles))
 
+    # 年次チャート
+    year_study_cols: list[list[tuple[str, float]]] = []
+    for month_data in yrep.study_by_month[: yrep.active_months]:
+        total = sum(month_data.values())
+        col_h = (
+            min(100.0, (total / yrep.study_max_month_min) * 100.0)
+            if yrep.study_max_month_min > 0
+            else 0.0
+        )
+        segs = []
+        for item, color in zip(STUDY_ITEMS_ORDER, STUDY_HEX):
+            if total > 0 and col_h > 0:
+                frac = month_data[item] / total
+                h = max(0.0, min(100.0, col_h * frac))
+            else:
+                h = 0.0
+            segs.append((color, h))
+        year_study_cols.append(segs)
+
+    year_goal_line_bottom_pct = min(
+        100.0,
+        (60.0 * 30.0 / yrep.study_max_month_min) * 100.0
+        if yrep.study_max_month_min > 0
+        else 0.0,
+    )
+
+    ypoly, ypoly_fill, ycircles, ygoal_y = svg_weight_polyline_n(yrep.weight_series_months)
+
+    year_run_bars = [
+        min(100.0, (km / yrep.run_max_month_km) * 100.0) if yrep.run_max_month_km > 0 else 0.0
+        for km in yrep.run_km_by_month[: yrep.active_months]
+    ]
+    year_run_goal_bottom_pct = min(
+        100.0,
+        (GOAL_RUN_KM_PER_DAY * 30.0 / yrep.run_max_month_km) * 100.0
+        if yrep.run_max_month_km > 0
+        else 0.0,
+    )
+
+    coach_cards_year = try_gemini_coach_cards_year(yrep)
+    if coach_cards_year is None:
+        coach_cards_year = pick_coach_cards_for_display(build_coach_cards_year(yrep))
+
+    year_month_labels = [label for label, _, _ in yrep.month_tiles[: yrep.active_months]]
+
     env = Environment(
         loader=FileSystemLoader(str(_base_dir() / "templates")),
         autoescape=select_autoescape(["html", "xml"]),
@@ -150,6 +202,7 @@ def main() -> None:
     html = tpl.render(
         rep=rep,
         mrep=mrep,
+        yrep=yrep,
         study_cols=study_cols,
         goal_line_bottom_pct=goal_line_bottom_pct,
         weight_polyline=poly,
@@ -170,6 +223,16 @@ def main() -> None:
         coach_cards_month=coach_cards_month,
         month_week_tiles=month_week_tiles,
         month_week_cols=month_week_cols,
+        year_study_cols=year_study_cols,
+        year_goal_line_bottom_pct=year_goal_line_bottom_pct,
+        year_weight_polyline=ypoly,
+        year_weight_polygon_fill=ypoly_fill,
+        year_weight_circles=ycircles,
+        year_weight_goal_y=ygoal_y,
+        year_run_bars=year_run_bars,
+        year_run_goal_bottom_pct=year_run_goal_bottom_pct,
+        coach_cards_year=coach_cards_year,
+        year_month_labels=year_month_labels,
     )
     out.write_text(html, encoding="utf-8")
     print(f"Wrote {out}")

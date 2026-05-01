@@ -423,7 +423,160 @@
     </div>
 
     <div class="view-panel" id="view-year" role="tabpanel" aria-labelledby="tab-year" data-view="year" hidden>
-      <p class="m-0 rounded-[14px] bg-ios-card p-[1.05rem] text-center text-base font-medium text-ios-secondary shadow-[0_0.5px_0_rgba(60,60,67,0.12)]">年間サマリーは準備中です。</p>
+      <div class="mb-[1.15rem] inline-flex items-center gap-[0.45rem] rounded-full bg-ios-card px-[0.85rem] py-2 text-[0.95rem] font-semibold tabular-nums text-ios-label shadow-[0_1px_0_rgba(60,60,67,0.12)]" title="対象年">
+        <span class="font-medium text-ios-secondary">対象</span>
+        <strong>{{ yrep.label_year }}</strong>
+      </div>
+      <p class="-mt-1 mb-4 text-[0.84rem] font-medium leading-snug text-ios-secondary">達成率はタイルの枠が太い月が80%以上です。チャートは{{ yrep.active_months }}月分（本日時点）を表示しています。</p>
+      <section class="overflow-hidden rounded-[14px] bg-ios-card shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="今年の記録">
+        <div class="flex items-start justify-between gap-[0.65rem] px-[1.05rem] pb-[0.65rem] pt-4">
+          <div class="min-w-0 flex-1">
+            <h2 class="m-0 text-xl font-bold tracking-tight text-black">今年の記録</h2>
+            <p class="mt-1 text-[0.95rem] font-medium text-ios-secondary">月ごとの達成率</p>
+          </div>
+          <aside class="shrink-0 pt-0.5 text-right" aria-label="前年の平均達成率">
+            <p class="mb-1.5 text-[0.88rem] font-semibold tracking-wide text-ios-secondary">前年</p>
+            <p class="m-0 flex items-baseline justify-end text-[1.35rem] font-bold tabular-nums leading-none text-black [font-feature-settings:&quot;tnum&quot;_1]">
+              <span>{% if yrep.prev_year_avg_rate is not none %}{{ yrep.prev_year_avg_rate }}%{% else %}—{% endif %}</span>
+            </p>
+          </aside>
+        </div>
+        <div class="rate-cols-6 grid grid-cols-6 gap-[0.35rem] px-[1.05rem] pb-4" role="list" aria-label="月別達成率">
+          {% for label, rate, hi in yrep.month_tiles %}
+          {% if rate is none %}
+          <div class="rate-tile-nav relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem">
+            <span class="text-base font-semibold leading-none text-ios-tertiary">—</span>
+            <span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">{{ label }}</span>
+          </div>
+          {% elif hi %}
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-card shadow-[inset_0_0_0_2px_#000]" role="listitem">
+            <span class="text-[1.1rem] font-bold tabular-nums leading-none text-accent-streak">{{ rate }}%</span>
+            <span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">{{ label }}</span>
+          </div>
+          {% else %}
+          <div class="relative flex min-h-[3.35rem] flex-col items-center justify-center gap-1 rounded-[10px] bg-ios-group px-0.5 py-[0.4rem]" role="listitem">
+            <span class="text-[1.1rem] font-bold tabular-nums leading-none text-black">{{ rate }}%</span>
+            <span class="text-center text-[0.76rem] font-semibold leading-tight text-ios-secondary">{{ label }}</span>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        <p class="mx-[1.05rem] mt-2 text-[0.84rem] font-medium leading-snug text-ios-secondary">「—」の月はまだ対象日がありません。</p>
+        <p class="mx-[1.05rem] mb-[0.85rem] text-[0.84rem] font-medium leading-snug text-ios-tertiary">達成率は暦月内の週タイル平均です。未記録の月は「—」です。</p>
+        <div class="mx-[1.05rem] h-px bg-ios-sep-light" aria-hidden="true"></div>
+        <div class="kpi-grid grid grid-cols-2 gap-0 border-t border-ios-sep-light" aria-label="今年のサマリー">
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-accent-streak">{{ yrep.streak_any_input }}</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">連続記録日数</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-b border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">{{ yrep.year_full_days }}</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">年 · 全日達成</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center border-r border-ios-sep-light bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">{{ yrep.year_rate_pct }}%</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">年間達成率</div>
+          </div>
+          <div class="relative flex min-h-[4.35rem] flex-col items-center justify-center bg-ios-card px-3 py-[0.9rem] pl-3 pr-[1.35rem] text-center">
+            <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">{{ yrep.full_days_delta_label }}</div>
+            <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">前年比（全日）</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間コーチコメント">
+        <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コーチコメント</h2>
+        <div class="flex flex-col gap-[0.75rem]">
+          {% for c in coach_cards_year %}
+          <article class="rounded-[12px] border border-ios-sep-light bg-ios-group/60 px-[0.85rem] py-[0.75rem]" data-coach="{{ c.slug }}">
+            <header class="mb-[0.35rem]">
+              <h3 class="m-0 text-[1.05rem] font-bold leading-tight text-black">{{ c.name }}</h3>
+              <p class="mt-0.5 m-0 text-[0.82rem] font-semibold leading-snug text-ios-secondary">{{ c.role }}</p>
+            </header>
+            {% for line in c.lines %}
+            <p class="{% if not loop.first %}mt-[0.45rem]{% else %}mt-0{% endif %} m-0 text-[1.02rem] font-medium leading-snug text-ios-label">{{ line }}</p>
+            {% endfor %}
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <div class="mt-4 flex flex-col gap-4">
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間勉強">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強（年）</h3>
+          <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+            <div class="flex h-36 gap-1.5 m-0 items-stretch p-0" aria-label="月別勉強時間">
+              {% for col in year_study_cols %}
+              <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col-reverse justify-start">
+                {% for color, h in col|reverse %}
+                <div class="w-full min-h-px shrink-0 self-end rounded-t-[3px]" style="height:{{ '%.2f'|format(h) }}%;background-color:{{ color }}"></div>
+                {% endfor %}
+              </div>
+              {% endfor %}
+            </div>
+            <div class="pointer-events-none absolute left-0 right-0 z-[2] h-0 border-t-2 border-dashed border-chart-goal" style="bottom:{{ '%.2f'|format(year_goal_line_bottom_pct) }}%">
+              <span class="absolute right-0 top-[-1.2rem] text-[0.82rem] font-bold tracking-wide text-chart-goal">目標 60 分/日×30</span>
+            </div>
+            <div class="mt-2 grid w-full gap-1.5 text-center text-[0.82rem] font-semibold tabular-nums text-ios-secondary" style="grid-template-columns: repeat({{ yrep.active_months }}, minmax(0, 1fr));">
+              {% for lbl in year_month_labels %}<span class="min-w-0">{{ lbl }}</span>{% endfor %}
+            </div>
+          </div>
+          <div class="mt-[0.85rem] grid grid-cols-2 gap-x-[0.65rem] gap-y-2 border-t border-ios-sep-light pt-[0.85rem] text-[0.95rem] font-semibold text-ios-label">
+            <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-1"></span>Duolingo</div>
+            <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-2"></span>中国語</div>
+            <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-3"></span>プログラミング</div>
+            <div class="flex min-w-0 items-center gap-2"><span class="h-[11px] w-[11px] shrink-0 rounded-[3px] bg-study-4"></span>ドリル</div>
+          </div>
+        </section>
+
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間体重">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">体重（年）</h3>
+          {% if year_weight_polyline %}
+          <svg class="weight-chart h-40 w-full" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="wgy" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#34c759" stop-opacity="0.2" />
+                <stop offset="100%" stop-color="#34c759" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <line class="axis-base" x1="18" y1="128" x2="382" y2="128" />
+            <polygon fill="url(#wgy)" points="{{ year_weight_polygon_fill }}" />
+            <polyline points="{{ year_weight_polyline }}" />
+            {{ year_weight_circles|safe }}
+            <line class="goal-w" x1="18" y1="{{ '%.1f'|format(year_weight_goal_y) }}" x2="382" y2="{{ '%.1f'|format(year_weight_goal_y) }}" />
+            <text class="goal-w-text" x="378" y="{{ '%.1f'|format(year_weight_goal_y - 6) }}" text-anchor="end">目標 68</text>
+          </svg>
+          <div class="mt-2 flex justify-between text-base font-medium text-ios-secondary">
+            <span>{% if yrep.weight_labels_year[0] %}年初 {{ yrep.weight_labels_year[0] }} kg{% else %}年初{% endif %}</span>
+            <span>{% if yrep.weight_labels_year[1] %}本日 {{ yrep.weight_labels_year[1] }} kg{% else %}本日{% endif %}</span>
+          </div>
+          {% else %}
+          <p class="m-0 text-base font-medium text-ios-secondary">今年はまだ体重の記録がありません。</p>
+          {% endif %}
+        </section>
+
+        <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間ランニング">
+          <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">ランニング（年）</h3>
+          <div class="relative ml-[0.15rem] flex flex-col border-b border-l border-ios-sep pb-0 pl-0 pt-[0.45rem]">
+            <div class="m-0 flex h-32 items-stretch gap-[5px] p-0" aria-label="月別距離">
+              {% for h in year_run_bars %}
+              <div class="mx-auto mt-auto w-full max-w-[40px] min-h-[3px] shrink-0 rounded-t-[5px] bg-gradient-to-t from-[#ffb340] to-chart-run {% if h <= 0 %}opacity-20{% endif %}" style="height:{{ '%.2f'|format(h) }}%"></div>
+              {% endfor %}
+            </div>
+            <div class="pointer-events-none absolute left-0 right-0 z-[2] h-0 border-t-2 border-dashed border-chart-goal" style="bottom:{{ '%.2f'|format(year_run_goal_bottom_pct) }}%">
+              <span class="absolute right-0 top-[-1.2rem] text-[0.82rem] font-bold tracking-wide text-chart-goal">月目標相当（150 km）</span>
+            </div>
+            <div class="mt-2 grid w-full gap-1.5 text-center text-[0.82rem] font-semibold tabular-nums text-ios-secondary" style="grid-template-columns: repeat({{ yrep.active_months }}, minmax(0, 1fr));">
+              {% for lbl in year_month_labels %}<span class="min-w-0">{{ lbl }}</span>{% endfor %}
+            </div>
+          </div>
+          <p class="mt-[0.7rem] text-base font-medium text-ios-secondary">
+            ペース <strong class="font-bold text-black">{% if yrep.pace_avg_min_per_km %}{{ yrep.pace_avg_min_per_km }}{% else %}—{% endif %}</strong>/km
+            <span class="font-bold text-chart-goal">　目標 {{ yrep.pace_goal_label }}</span>
+          </p>
+        </section>
+      </div>
+      <footer class="mt-5 border-t border-transparent pt-[0.85rem] text-center text-[0.82rem] font-semibold text-ios-tertiary">年の区切り: 暦年 · Asia/Shanghai</footer>
     </div>
 
   </div>
