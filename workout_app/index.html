@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="ja" class="text-[112.5%] antialiased [-webkit-text-size-adjust:100%]">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f2f2f7" />
+  <title>筋トレ記録</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system','BlinkMacSystemFont','"SF Pro Text"','"Hiragino Sans"','"Noto Sans JP"','sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    #tabs [aria-selected="true"] { color:#000; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+    .view-panel.hidden { display:none; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in { animation:fadeIn 0.18s ease both; }
+    @keyframes bkIn  { from{opacity:0} to{opacity:1} }
+    @keyframes bkOut { from{opacity:1} to{opacity:0} }
+    @keyframes shUp  { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    @keyframes shDn  { from{transform:translateY(0)} to{transform:translateY(100%)} }
+    .ov-enter .ov-bk { animation:bkIn  0.22s ease both; }
+    .ov-enter .ov-sh { animation:shUp  0.3s cubic-bezier(0.32,0.72,0,1) both; }
+    .ov-exit  .ov-bk { animation:bkOut 0.2s ease both; }
+    .ov-exit  .ov-sh { animation:shDn  0.26s cubic-bezier(0.32,0.72,0,1) both; }
+    .day-nav-btn {
+      display:flex; align-items:center; justify-content:center;
+      width:2.25rem; height:2.25rem; border-radius:50%;
+      background:#fff; border:none; cursor:pointer; font-size:1.4rem;
+      color:rgba(60,60,67,0.6); box-shadow:0 1px 3px rgba(0,0,0,0.09);
+      -webkit-tap-highlight-color:transparent;
+    }
+    .day-nav-btn:disabled { opacity:0.3; cursor:default; }
+    .day-nav-btn:not(:disabled):active { background:#f0f0f5; }
+    .tap { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .tap:active { background:rgba(60,60,67,0.05); }
+    .cal-btn { cursor:pointer; -webkit-tap-highlight-color:transparent; border-radius:8px; }
+    .cal-btn:active { opacity:0.75; }
+    .ex-btn { cursor:pointer; -webkit-tap-highlight-color:transparent; border-radius:6px; }
+    .ex-btn:active { background:rgba(60,60,67,0.06); }
+    .no-scroll::-webkit-scrollbar { display:none; }
+    .no-scroll { -ms-overflow-style:none; scrollbar-width:none; }
+    svg.chart polyline { fill:none; stroke:#007aff; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+    svg.chart .pb-line { stroke:#ff2d55; stroke-width:1.5; stroke-dasharray:5 3; }
+    svg.chart .axis { stroke:rgba(60,60,67,0.12); stroke-width:1; }
+    /* Editor number inputs */
+    .num-input {
+      width:3.8rem; text-align:center; font-size:0.95rem; font-weight:600;
+      border:1.5px solid rgba(60,60,67,0.18); border-radius:8px; padding:0.28rem 0.2rem;
+      background:#f8f8fa; -moz-appearance:textfield; -webkit-tap-highlight-color:transparent;
+    }
+    .num-input::-webkit-inner-spin-button, .num-input::-webkit-outer-spin-button { -webkit-appearance:none; }
+    .num-input:focus { outline:none; border-color:#007aff; background:#fff; }
+    .type-chip { cursor:pointer; border:2px solid rgba(60,60,67,0.12); transition:all 0.12s; border-radius:999px; }
+    .type-chip.sel { border-color:#007aff; background:rgba(10,132,255,0.1); color:#007aff; font-weight:700; }
+    .mpill { cursor:pointer; -webkit-tap-highlight-color:transparent; border-radius:999px; }
+    .mpill.on { background:#007aff!important; color:#fff!important; }
+    .ex-check-btn { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .ex-check-btn:active { opacity:0.7; }
+  </style>
+</head>
+<body class="min-h-dvh bg-[#f2f2f7] font-sans text-base leading-snug tracking-tight text-black">
+
+<!-- ─── メインコンテンツ ─── -->
+<div class="mx-auto max-w-[375px] pb-[max(2rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))]">
+
+  <header class="mb-4 flex flex-col gap-3">
+    <div class="flex items-start justify-between">
+      <div>
+        <h1 class="mb-0.5 text-[1.65rem] font-bold leading-tight tracking-tight">筋トレ記録</h1>
+        <p class="text-[1rem] font-semibold" style="color:rgba(60,60,67,0.6)">トレーニングログ</p>
+      </div>
+      <button onclick="openSettings()" class="tap mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-[1.15rem]" style="box-shadow:0 1px 3px rgba(0,0,0,0.09)" aria-label="設定">⚙️</button>
+    </div>
+    <div id="tabs" class="flex w-full rounded-[10px] p-[3px]" style="background:rgba(120,120,128,0.16)" role="tablist">
+      <button type="button" role="tab" id="tab-menu" aria-selected="false"
+        class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
+        style="color:rgba(60,60,67,0.6)">メニュー</button>
+      <button type="button" role="tab" id="tab-log" aria-selected="true"
+        class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
+        style="color:rgba(60,60,67,0.6)">記録</button>
+      <button type="button" role="tab" id="tab-history" aria-selected="false"
+        class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
+        style="color:rgba(60,60,67,0.6)">履歴</button>
+    </div>
+  </header>
+
+  <!-- 記録 -->
+  <div id="view-log" class="view-panel" role="tabpanel">
+    <div class="flex items-center justify-between mb-3 px-0.5">
+      <button id="prev-day" class="day-nav-btn" aria-label="前の日">‹</button>
+      <div id="date-display" class="text-[0.97rem] font-bold tabular-nums"></div>
+      <button id="next-day" class="day-nav-btn" aria-label="次の日">›</button>
+    </div>
+    <div id="day-content"></div>
+  </div>
+
+  <!-- メニュー -->
+  <div id="view-menu" class="view-panel hidden" role="tabpanel">
+    <div id="menu-content"></div>
+  </div>
+
+  <!-- 履歴 -->
+  <div id="view-history" class="view-panel hidden" role="tabpanel">
+    <div id="history-content"></div>
+  </div>
+</div>
+
+<!-- ─── ワークアウトエディタ ─── -->
+<div id="editor-ov" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div class="ov-bk absolute inset-0" style="background:rgba(0,0,0,0.3)" onclick="closeEditor()"></div>
+  <div class="ov-sh mx-auto w-full max-w-[375px] relative" style="background:#f2f2f7;border-radius:20px 20px 0 0;max-height:92dvh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:center;padding:0.6rem 0 0;flex-shrink:0">
+      <div style="width:2.5rem;height:4px;border-radius:2px;background:rgba(60,60,67,0.22)"></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 1rem 0.6rem;flex-shrink:0">
+      <button onclick="closeEditor()" class="tap" style="font-size:0.9rem;color:rgba(60,60,67,0.55);background:none;border:none;cursor:pointer;padding:0.2rem 0">キャンセル</button>
+      <h2 id="editor-title" style="font-size:1.05rem;font-weight:700">トレーニングを記録</h2>
+      <button onclick="saveEditor()" style="font-size:0.9rem;font-weight:700;color:#007aff;background:none;border:none;cursor:pointer;padding:0.2rem 0">保存</button>
+    </div>
+    <div id="editor-body" class="no-scroll" style="overflow-y:auto;flex:1;min-height:0;padding:0 1rem 2rem"></div>
+  </div>
+</div>
+
+<!-- ─── 種目ピッカー ─── -->
+<div id="picker-ov" class="hidden fixed inset-0 z-60 flex items-end justify-center" style="z-index:60">
+  <div class="ov-bk absolute inset-0" style="background:rgba(0,0,0,0.3)" onclick="closePicker()"></div>
+  <div class="ov-sh mx-auto w-full max-w-[375px] relative" style="background:#f2f2f7;border-radius:20px 20px 0 0;max-height:80dvh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:center;padding:0.6rem 0 0;flex-shrink:0">
+      <div style="width:2.5rem;height:4px;border-radius:2px;background:rgba(60,60,67,0.22)"></div>
+    </div>
+    <div style="padding:0.4rem 1rem 0.6rem;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem">
+        <h2 style="font-size:1.05rem;font-weight:700">種目を追加</h2>
+        <button onclick="closePicker()" style="font-size:0.9rem;color:rgba(60,60,67,0.55);background:none;border:none;cursor:pointer">✕</button>
+      </div>
+      <input id="picker-search" type="text" placeholder="種目を検索..."
+        oninput="filterPicker(this.value)"
+        style="width:100%;border:1.5px solid rgba(60,60,67,0.15);border-radius:10px;padding:0.5rem 0.75rem;font-size:0.9rem;background:#fff;outline:none" />
+      <div id="picker-muscles" class="flex gap-1.5 mt-2 overflow-x-auto no-scroll pb-0.5"></div>
+    </div>
+    <div id="picker-list" class="no-scroll" style="overflow-y:auto;flex:1;min-height:0;padding:0 1rem 2rem"></div>
+  </div>
+</div>
+
+<!-- ─── 種目別詳細 ─── -->
+<div id="ex-ov" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div class="ov-bk absolute inset-0" style="background:rgba(0,0,0,0.3)" onclick="closeExDetail()"></div>
+  <div class="ov-sh mx-auto w-full max-w-[375px] relative" style="background:#f2f2f7;border-radius:20px 20px 0 0;max-height:88dvh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:center;padding:0.6rem 0 0.2rem;flex-shrink:0">
+      <div style="width:2.5rem;height:4px;border-radius:2px;background:rgba(60,60,67,0.22)"></div>
+    </div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:0.4rem 1rem 0.6rem;flex-shrink:0">
+      <div>
+        <h2 id="ex-title" style="font-size:1.3rem;font-weight:700;line-height:1.2;margin-bottom:0.15rem"></h2>
+        <p id="ex-subtitle" style="font-size:0.88rem;font-weight:600;color:rgba(60,60,67,0.55)"></p>
+      </div>
+      <button onclick="closeExDetail()" style="width:1.9rem;height:1.9rem;border-radius:50%;background:rgba(60,60,67,0.1);border:none;cursor:pointer;font-size:0.82rem;font-weight:700;color:rgba(60,60,67,0.65)">✕</button>
+    </div>
+    <div id="ex-body" class="no-scroll" style="overflow-y:auto;padding:0 1rem 2rem;flex:1;min-height:0"></div>
+  </div>
+</div>
+
+<!-- ─── 設定 / インポートエクスポート ─── -->
+<div id="settings-ov" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div class="ov-bk absolute inset-0" style="background:rgba(0,0,0,0.3)" onclick="closeSettings()"></div>
+  <div class="ov-sh mx-auto w-full max-w-[375px] relative" style="background:#f2f2f7;border-radius:20px 20px 0 0;max-height:88dvh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:center;padding:0.6rem 0 0;flex-shrink:0">
+      <div style="width:2.5rem;height:4px;border-radius:2px;background:rgba(60,60,67,0.22)"></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 1rem 0.75rem;flex-shrink:0">
+      <h2 style="font-size:1.1rem;font-weight:700">設定</h2>
+      <button onclick="closeSettings()" style="font-size:0.9rem;color:rgba(60,60,67,0.55);background:none;border:none;cursor:pointer">✕</button>
+    </div>
+    <div id="settings-body" class="no-scroll" style="overflow-y:auto;flex:1;min-height:0;padding:0 1rem 2rem"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════
+//  定数
+// ══════════════════════════════════════════════════════════
+
+const STORE_KEY = 'workout_app_v1';
+
+const WORKOUT_TYPES = [
+  '胸・肩・三頭筋','背中・二頭筋','脚・腹筋','肩・腕','全身','その他',
+];
+
+const EXERCISE_DB = {
+  '胸':   ['ベンチプレス','インクラインベンチプレス','ダンベルプレス','インクライン D.プレス','ダンベルフライ','インクラインフライ','ケーブルクロスオーバー','ディップス','プッシュアップ'],
+  '肩':   ['ショルダープレス','アーノルドプレス','サイドレイズ','フロントレイズ','ベントオーバーレイズ','フェイスプル','アップライトロウ'],
+  '三頭': ['トライセプスプッシュダウン','ライイング T.エクステンション','スカルクラッシャー','ディップス','オーバーヘッド T.エクステンション','キックバック'],
+  '背中': ['デッドリフト','ラットプルダウン','チンニング（懸垂）','シーテッドロウ','バーベルロウ','ダンベルロウ','Tバーロウ','プルオーバー'],
+  '二頭': ['バーベルカール','ダンベルカール','ハンマーカール','プリーチャーカール','コンセントレーションカール','ケーブルカール','インクラインカール'],
+  '脚':   ['スクワット','レッグプレス','レッグエクステンション','レッグカール','ランジ','ブルガリアンスクワット','カーフレイズ','ルーマニアン D.L'],
+  '腹':   ['クランチ','シットアップ','レッグレイズ','プランク','ロシアンツイスト','アブローラー','バイシクルクランチ'],
+};
+
+const C = {
+  '胸・肩・三頭筋': { bg:'rgba(10,132,255,0.10)', text:'#0a84ff', dot:'#0a84ff' },
+  '背中・二頭筋':   { bg:'rgba(52,199,89,0.12)',  text:'#1a8c34', dot:'#34c759' },
+  '脚・腹筋':       { bg:'rgba(255,149,0,0.12)',  text:'#c47700', dot:'#ff9500' },
+  '肩・腕':         { bg:'rgba(175,82,222,0.12)', text:'#8944ab', dot:'#af52de' },
+  '全身':           { bg:'rgba(255,45,85,0.10)',  text:'#d0003e', dot:'#ff2d55' },
+  'その他':         { bg:'rgba(60,60,67,0.08)',   text:'rgba(60,60,67,0.7)', dot:'rgba(60,60,67,0.5)' },
+};
+
+const MC = {
+  '胸':   { bg:'rgba(10,132,255,0.10)',  text:'#0a84ff' },
+  '背中': { bg:'rgba(52,199,89,0.12)',   text:'#1a8c34' },
+  '脚':   { bg:'rgba(255,149,0,0.12)',   text:'#c47700' },
+  '腹':   { bg:'rgba(255,149,0,0.12)',   text:'#c47700' },
+  '肩':   { bg:'rgba(175,82,222,0.12)',  text:'#8944ab' },
+  '二頭': { bg:'rgba(255,45,85,0.10)',   text:'#d0003e' },
+  '三頭': { bg:'rgba(255,45,85,0.10)',   text:'#d0003e' },
+};
+const mcOf = m => MC[m] || { bg:'rgba(60,60,67,0.07)', text:'rgba(60,60,67,0.65)' };
+
+const COACH = { name:'田中コーチ', emoji:'👨‍💼' };
+
+// ══════════════════════════════════════════════════════════
+//  Store (localStorage)
+// ══════════════════════════════════════════════════════════
+
+function loadStore() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; }
+}
+function saveStore(d) { localStorage.setItem(STORE_KEY, JSON.stringify(d)); }
+
+function getWorkout(date)      { return (loadStore().workouts || {})[date] || null; }
+function getAllWorkouts()       { return loadStore().workouts || {}; }
+function setWorkout(date, wo)  {
+  const d = loadStore();
+  (d.workouts = d.workouts || {})[date] = wo;
+  saveStore(d);
+}
+function deleteWorkout(date)   {
+  const d = loadStore();
+  if (d.workouts) { delete d.workouts[date]; saveStore(d); }
+}
+function getWeeklyPlan()       { return loadStore().weeklyPlan || null; }
+function setWeeklyPlan(plan)   { const d = loadStore(); d.weeklyPlan = plan; saveStore(d); }
+function getSettings()         { return loadStore().settings || {}; }
+function saveSettings(s)       { const d = loadStore(); d.settings = s; saveStore(d); }
+
+function uid() { return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2); }
+
+// ══════════════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════════════
+
+const TODAY = (() => {
+  const d = new Date(); d.setHours(0,0,0,0);
+  return d.toISOString().slice(0,10);
+})();
+const MIN_DATE = (() => { const d = new Date(TODAY); d.setDate(d.getDate()-90); return d.toISOString().slice(0,10); })();
+
+let currentDate   = TODAY;
+let selMenuDate   = TODAY;
+let pickerCallback = null;   // called with {name, muscle}
+let filterMuscle   = null;
+
+// ══════════════════════════════════════════════════════════
+//  Utils
+// ══════════════════════════════════════════════════════════
+
+function shiftDate(d, n) {
+  const dt = new Date(d + 'T00:00:00'); dt.setDate(dt.getDate() + n);
+  return dt.toISOString().slice(0,10);
+}
+function fmtDate(d) {
+  const dt = new Date(d + 'T00:00:00');
+  const dows = ['日','月','火','水','木','金','土'];
+  return `${dt.getMonth()+1}月${dt.getDate()}日（${dows[dt.getDay()]}）${d === TODAY ? '\u3000今日' : ''}`;
+}
+function fmtShort(d) {
+  const dt = new Date(d + 'T00:00:00');
+  return `${dt.getMonth()+1}/${dt.getDate()}`;
+}
+function fmtRelDate(d) {
+  const diff = Math.round((new Date(TODAY) - new Date(d)) / 86400000);
+  if (diff === 0) return '今日'; if (diff === 1) return '昨日';
+  if (diff < 7) return `${diff}日前`; if (diff < 14) return '1週間前';
+  return `${Math.round(diff/7)}週間前`;
+}
+function calcVol(sets, isSec) {
+  if (isSec) return null;
+  return sets.reduce((s,{w,r}) => s + w*r, 0);
+}
+function totalVol(wo)  { return wo.exercises.reduce((s,ex) => s + (calcVol(ex.sets, ex.isSeconds)||0), 0); }
+function totalSets(wo) { return wo.exercises.reduce((s,ex) => s + ex.sets.length, 0); }
+function maxW(sets) {
+  const ws = sets.map(s => s.w).filter(w => w > 0);
+  return ws.length ? Math.max(...ws) : null;
+}
+function getExSessions(name) {
+  const wos = getAllWorkouts();
+  return Object.entries(wos)
+    .filter(([,wo]) => wo.exercises.some(ex => ex.name === name))
+    .sort(([a],[b]) => a.localeCompare(b))
+    .map(([date,wo]) => {
+      const ex = wo.exercises.find(e => e.name === name);
+      const mw = ex.isSeconds ? null : maxW(ex.sets);
+      return { date, ex, maxW: mw, vol: calcVol(ex.sets, ex.isSeconds) };
+    });
+}
+function getAllExByMuscle() {
+  const map = new Map();
+  Object.entries(getAllWorkouts()).sort(([a],[b]) => a.localeCompare(b)).forEach(([date,wo]) => {
+    wo.exercises.forEach(ex => {
+      if (!map.has(ex.name)) map.set(ex.name, { muscle:ex.muscle, isSeconds:ex.isSeconds, sessions:[] });
+      map.get(ex.name).sessions.push({ date, sets:ex.sets });
+    });
+  });
+  const grouped = {};
+  map.forEach((v,name) => {
+    if (!grouped[v.muscle]) grouped[v.muscle] = [];
+    const last = v.sessions[v.sessions.length - 1];
+    const bestWeight = v.isSeconds ? null
+      : (() => { const ws = v.sessions.flatMap(s => s.sets.map(x => x.w)).filter(w => w > 0); return ws.length ? Math.max(...ws) : null; })();
+    grouped[v.muscle].push({ name, muscle:v.muscle, isSeconds:v.isSeconds, sessionCount:v.sessions.length, bestWeight, lastDate:last.date });
+  });
+  return grouped;
+}
+function calcStreak() {
+  let streak = 0, d = TODAY;
+  for (let i = 0; i < 365; i++) {
+    if (getWorkout(d)) streak++; else break;
+    d = shiftDate(d, -1);
+  }
+  return streak;
+}
+
+// ══════════════════════════════════════════════════════════
+//  View: 記録タブ
+// ══════════════════════════════════════════════════════════
+
+function renderLog() {
+  document.getElementById('date-display').textContent = fmtDate(currentDate);
+  document.getElementById('prev-day').disabled = currentDate <= MIN_DATE;
+  document.getElementById('next-day').disabled = currentDate >= TODAY;
+  const wo = getWorkout(currentDate);
+  const el = document.getElementById('day-content');
+  el.innerHTML = wo ? buildWorkout(wo) : buildEmpty();
+  el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in');
+}
+
+function buildEmpty() {
+  return `
+<div class="flex flex-col items-center justify-center rounded-[14px] bg-white py-12 mb-3" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div style="font-size:2.5rem;margin-bottom:0.75rem">💪</div>
+  <div style="font-size:1.05rem;font-weight:700;margin-bottom:0.25rem">トレーニングなし</div>
+  <div style="font-size:0.85rem;color:rgba(60,60,67,0.5);margin-bottom:1.25rem">${currentDate === TODAY ? '今日のトレーニングを記録しましょう' : 'この日の記録はありません'}</div>
+  <button onclick="openEditor('${currentDate}', null)"
+    style="background:#007aff;color:#fff;border:none;border-radius:12px;padding:0.65rem 1.5rem;font-size:0.95rem;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">
+    ＋ トレーニングを追加
+  </button>
+</div>`;
+}
+
+function buildWorkout(wo) {
+  const c = C[wo.type] || C['その他'];
+  const vol = totalVol(wo), sets = totalSets(wo);
+  const volStr = vol >= 1000 ? (vol/1000).toFixed(1)+' t' : vol.toLocaleString()+' kg';
+  const durStr = wo.duration ? `⏱ ${wo.duration} 分` : '';
+  const exHtml = wo.exercises.map((ex,i) => buildExRow(ex,i,wo.exercises.length)).join('');
+
+  return `
+<div class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="flex items-center justify-between px-4 pt-4 pb-3">
+    <span class="inline-flex items-center rounded-full px-3 py-1 text-[0.82rem] font-bold" style="background:${c.bg};color:${c.text}">${wo.type}</span>
+    <div class="flex items-center gap-2">
+      ${durStr ? `<span class="text-[0.82rem] font-medium" style="color:rgba(60,60,67,0.55)">${durStr}</span>` : ''}
+      <button onclick="openEditor('${currentDate}', null)" class="tap flex items-center justify-center rounded-full" style="width:1.9rem;height:1.9rem;background:rgba(60,60,67,0.07);border:none;cursor:pointer;font-size:0.85rem" aria-label="編集">✏️</button>
+      <button onclick="confirmDelete('${currentDate}')" class="tap flex items-center justify-center rounded-full" style="width:1.9rem;height:1.9rem;background:rgba(255,59,48,0.08);border:none;cursor:pointer;font-size:0.85rem" aria-label="削除">🗑️</button>
+    </div>
+  </div>
+  <div class="grid grid-cols-3" style="border-top:1px solid rgba(60,60,67,0.1)">
+    <div class="flex flex-col items-center py-3">
+      <span class="text-[1.5rem] font-bold tabular-nums" style="color:#007aff">${wo.exercises.length}</span>
+      <span class="text-[0.75rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">種目</span>
+    </div>
+    <div class="flex flex-col items-center py-3" style="border-left:1px solid rgba(60,60,67,0.1);border-right:1px solid rgba(60,60,67,0.1)">
+      <span class="text-[1.5rem] font-bold tabular-nums" style="color:#007aff">${sets}</span>
+      <span class="text-[0.75rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">総セット</span>
+    </div>
+    <div class="flex flex-col items-center py-3">
+      <span class="text-[1.4rem] font-bold tabular-nums" style="color:#007aff">${volStr}</span>
+      <span class="text-[0.75rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">総ボリューム</span>
+    </div>
+  </div>
+</div>
+<section class="mb-3">
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide" style="color:rgba(60,60,67,0.5)">種目詳細 <span style="font-weight:400">— 種目名タップで履歴</span></div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">${exHtml}</div>
+</section>
+${wo.memo ? `<section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)"><div class="px-4 py-3"><div class="text-[0.78rem] font-semibold uppercase tracking-wide mb-2" style="color:rgba(60,60,67,0.5)">メモ</div><p class="text-[0.95rem] leading-relaxed">${wo.memo}</p></div></section>` : ''}`;
+}
+
+function buildExRow(ex, idx, total) {
+  const vol = calcVol(ex.sets, ex.isSeconds);
+  const mc  = mcOf(ex.muscle);
+  const cnt = getExSessions(ex.name).length;
+  const bdr = idx > 0 ? 'border-top:1px solid rgba(60,60,67,0.1)' : '';
+  const rowsHtml = ex.sets.map((s,si) => {
+    const wL = s.w === 0 ? (ex.isSeconds ? '―' : '自重') : `${s.w} kg`;
+    const rL = ex.isSeconds ? `${s.r} 秒` : `${s.r} 回`;
+    const b  = si < ex.sets.length-1 ? 'border-bottom:1px solid rgba(60,60,67,0.06)' : '';
+    return `<div style="display:grid;grid-template-columns:2rem 1fr auto;align-items:center;padding:0.46rem 1rem;${b}">
+<span style="font-size:0.78rem;font-weight:700;color:rgba(60,60,67,0.38);font-variant-numeric:tabular-nums">${si+1}</span>
+<span style="font-size:0.92rem;font-weight:600;font-variant-numeric:tabular-nums">${wL}</span>
+<span style="font-size:0.85rem;font-weight:500;color:rgba(60,60,67,0.58);font-variant-numeric:tabular-nums">× ${rL}</span>
+</div>`;
+  }).join('');
+  return `
+<div style="${bdr}">
+  <div class="ex-btn" onclick="openExDetail('${ex.name.replace(/'/g,"\\'")}');"
+       style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem 0.35rem;margin:0 -0.25rem">
+    <div style="display:flex;align-items:center;gap:0.45rem;min-width:0;flex:1">
+      <span style="font-size:0.97rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ex.name}</span>
+      <span style="flex-shrink:0;border-radius:999px;padding:0.1rem 0.45rem;font-size:0.72rem;font-weight:600;background:${mc.bg};color:${mc.text}">${ex.muscle}</span>
+      <span style="flex-shrink:0;font-size:0.72rem;color:rgba(60,60,67,0.4)">${cnt}回</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.3rem;flex-shrink:0;margin-left:0.5rem">
+      ${vol ? `<span style="font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.38)">${vol.toLocaleString()} kg</span>` : ''}
+      <span style="font-size:0.95rem;color:rgba(60,60,67,0.25)">›</span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:2rem 1fr auto;padding:0.26rem 1rem;background:rgba(60,60,67,0.04)">
+    <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">SET</span>
+    <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">重量</span>
+    <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">回数</span>
+  </div>
+  ${rowsHtml}
+</div>`;
+}
+
+function confirmDelete(date) {
+  if (confirm(`${fmtDate(date).trim()} のトレーニングを削除しますか？`)) {
+    deleteWorkout(date); renderLog();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  View: メニュータブ
+// ══════════════════════════════════════════════════════════
+
+function renderMenu() {
+  const plan = getWeeklyPlan();
+  const el = document.getElementById('menu-content');
+  if (!plan) {
+    el.innerHTML = buildMenuEmpty();
+    return;
+  }
+  el.innerHTML = buildCoachMsg(plan) + buildWeekGrid(plan) + buildDayDetail(plan, selMenuDate);
+}
+
+function buildMenuEmpty() {
+  const settings = getSettings();
+  const hasKey = !!(settings.geminiApiKey || '').trim();
+  return `
+<div class="flex flex-col items-center justify-center rounded-[14px] bg-white py-12 mb-3" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div style="font-size:2.5rem;margin-bottom:0.75rem">📋</div>
+  <div style="font-size:1.05rem;font-weight:700;margin-bottom:0.25rem">週間メニューなし</div>
+  <div style="font-size:0.85rem;color:rgba(60,60,67,0.5);margin-bottom:1.25rem;text-align:center;padding:0 1rem">コーチからの週間メニューをインポート<br>または AI で生成してください</div>
+  <div class="flex gap-2">
+    <button onclick="openSettings()" style="background:rgba(60,60,67,0.08);color:#000;border:none;border-radius:12px;padding:0.6rem 1rem;font-size:0.88rem;font-weight:600;cursor:pointer">⚙️ 設定</button>
+    ${hasKey ? `<button onclick="generateMenuAI()" style="background:#007aff;color:#fff;border:none;border-radius:12px;padding:0.6rem 1rem;font-size:0.88rem;font-weight:600;cursor:pointer">✨ AI生成</button>` : ''}
+  </div>
+</div>`;
+}
+
+function buildCoachMsg(plan) {
+  const d = new Date(plan.sentDate + 'T00:00:00');
+  return `
+<div class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="px-4 pt-4 pb-3">
+    <div class="flex items-center gap-2 mb-3">
+      <div style="width:2.2rem;height:2.2rem;border-radius:50%;background:rgba(10,132,255,0.1);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${COACH.emoji}</div>
+      <div style="flex:1">
+        <div style="font-size:0.9rem;font-weight:700">${COACH.name}</div>
+        <div style="font-size:0.72rem;color:rgba(60,60,67,0.5)">今週のメッセージ · ${d.getMonth()+1}/${d.getDate()} 送信</div>
+      </div>
+      <span style="font-size:0.72rem;font-weight:600;border-radius:999px;padding:0.15rem 0.55rem;background:rgba(10,132,255,0.1);color:#0a84ff;flex-shrink:0">
+        ${plan.weekStart.slice(5).replace('-','/')} 〜 ${plan.weekEnd.slice(5).replace('-','/')}
+      </span>
+    </div>
+    <p style="font-size:0.9rem;line-height:1.6">${plan.coachMessage}</p>
+  </div>
+</div>`;
+}
+
+function buildWeekGrid(plan) {
+  const start = new Date(plan.weekStart + 'T00:00:00');
+  const dows  = ['月','火','水','木','金','土','日'];
+  const days  = Array.from({length:7}, (_,i) => {
+    const dt = new Date(start); dt.setDate(dt.getDate() + i);
+    return dt.toISOString().slice(0,10);
+  });
+  const cols = days.map((ds,i) => {
+    const dayPlan = plan.days[ds];
+    const done   = !!getWorkout(ds);
+    const isSel  = ds === selMenuDate && !!dayPlan;
+    const isFut  = ds > TODAY;
+    const col    = dayPlan ? (C[dayPlan.type] || C['その他']) : null;
+    const short  = dayPlan ? dayPlan.type.split('・')[0].slice(0,2) : '';
+    const border = isSel ? `box-shadow:inset 0 0 0 2px ${col.dot};border-radius:10px;` : '';
+    const status = done
+      ? `<span style="font-size:0.7rem;color:#34c759;font-weight:700">✓</span>`
+      : ds === TODAY && dayPlan
+      ? `<span style="font-size:0.65rem;color:#007aff;font-weight:700">今日</span>`
+      : dayPlan && isFut
+      ? `<span style="font-size:0.7rem;color:rgba(60,60,67,0.3)">●</span>`
+      : `<span style="font-size:0.7rem;color:rgba(60,60,67,0.2)">―</span>`;
+    return `
+<div ${dayPlan ? `onclick="selectMenuDay('${ds}')"` : ''}
+     style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:0.4rem 0.1rem;${border}cursor:${dayPlan?'pointer':'default'};-webkit-tap-highlight-color:transparent">
+  <span style="font-size:0.72rem;font-weight:600;color:rgba(60,60,67,0.45)">${dows[i]}</span>
+  ${dayPlan
+    ? `<span style="font-size:0.68rem;font-weight:700;border-radius:6px;padding:0.12rem 0.28rem;background:${col.bg};color:${col.text};line-height:1.3">${short}</span>`
+    : `<span style="font-size:0.7rem;color:rgba(60,60,67,0.2)">休</span>`}
+  ${status}
+</div>`;
+  }).join('');
+  return `
+<section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="px-3 pt-3 pb-2">
+    <div class="flex items-center justify-between mb-2">
+      <span style="font-size:0.82rem;font-weight:700">週間プラン</span>
+      <span style="font-size:0.72rem;color:rgba(60,60,67,0.45)">日をタップで詳細</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${cols}</div>
+  </div>
+</section>`;
+}
+
+function buildDayDetail(plan, ds) {
+  const dayPlan = plan.days[ds];
+  if (!dayPlan) return '';
+  const dt  = new Date(ds + 'T00:00:00');
+  const dows = ['日','月','火','水','木','金','土'];
+  const dateLabel = `${dt.getMonth()+1}月${dt.getDate()}日（${dows[dt.getDay()]}）${ds === TODAY ? '\u3000今日' : ''}`;
+  const col  = C[dayPlan.type] || C['その他'];
+  const wo   = getWorkout(ds);
+  const done = !!wo;
+  const isFut = ds > TODAY;
+  const statusBadge = done
+    ? `<span style="font-size:0.75rem;font-weight:700;border-radius:999px;padding:0.15rem 0.6rem;background:rgba(52,199,89,0.12);color:#1a8c34">実施済 ✓</span>`
+    : isFut
+    ? `<span style="font-size:0.75rem;font-weight:700;border-radius:999px;padding:0.15rem 0.6rem;background:rgba(60,60,67,0.07);color:rgba(60,60,67,0.5)">予定</span>`
+    : `<span style="font-size:0.75rem;font-weight:700;border-radius:999px;padding:0.15rem 0.6rem;background:rgba(255,149,0,0.12);color:#c47700">未実施</span>`;
+  const exRows = dayPlan.targets.map((t,i) => {
+    const actEx = wo ? wo.exercises.find(e => e.name === t.name) : null;
+    const bdr   = i > 0 ? 'border-top:1px solid rgba(60,60,67,0.08)' : '';
+    const noteTxt = t.note ? `<div style="margin-top:0.3rem;font-size:0.78rem;color:rgba(60,60,67,0.55);border-left:2px solid rgba(10,132,255,0.35);padding-left:0.4rem">${t.note}</div>` : '';
+    let actHtml = '';
+    if (actEx) {
+      const tags = actEx.sets.map(s => {
+        const wT = s.w === 0 ? (actEx.isSeconds ? '―' : '自重') : `${s.w}`;
+        const rT = actEx.isSeconds ? `${s.r}秒` : `${s.r}回`;
+        return `<span style="display:inline-block;font-size:0.75rem;font-weight:600;border-radius:5px;padding:0.08rem 0.32rem;background:rgba(10,132,255,0.08);color:#0a84ff;margin:1px">${wT}×${rT}</span>`;
+      }).join('');
+      actHtml = `<div style="margin-top:0.35rem"><div style="font-size:0.66rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.4);margin-bottom:0.2rem">実績</div><div style="display:flex;flex-wrap:wrap;gap:2px">${tags}</div></div>`;
+    }
+    return `<div style="padding:0.55rem 1rem;${bdr}">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:0.5rem;margin-bottom:0.2rem">
+  <span style="font-size:0.92rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</span>
+  <span style="font-size:0.78rem;font-weight:500;color:rgba(60,60,67,0.5);flex-shrink:0;white-space:nowrap">${t.sets}set × ${t.reps} @ ${t.weight}</span>
+</div>${noteTxt}${actHtml}</div>`;
+  }).join('');
+
+  const fbHtml = done ? buildFeedback(plan, ds) : '';
+
+  return `
+<section class="mb-3">
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide" style="color:rgba(60,60,67,0.5)">メニュー詳細</div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1rem 0.5rem">
+      <div>
+        <div style="font-size:0.85rem;font-weight:700;color:rgba(60,60,67,0.55);margin-bottom:0.2rem">${dateLabel}</div>
+        <span style="display:inline-block;border-radius:999px;padding:0.15rem 0.65rem;font-size:0.8rem;font-weight:700;background:${col.bg};color:${col.text}">${dayPlan.type}</span>
+      </div>
+      ${statusBadge}
+    </div>
+    <div style="border-top:1px solid rgba(60,60,67,0.1)">${exRows}</div>
+  </div>
+</section>
+${fbHtml}`;
+}
+
+function buildFeedback(plan, ds) {
+  const fb = (plan.feedbacks || {})[ds];
+  if (!fb) return `
+<section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div style="display:flex;flex-direction:column;align-items:center;padding:1.25rem 1rem">
+    <div style="font-size:1.3rem;margin-bottom:0.4rem">⏳</div>
+    <div style="font-size:0.9rem;font-weight:700;margin-bottom:0.15rem">フィードバック待ち</div>
+    <div style="font-size:0.8rem;color:rgba(60,60,67,0.5)">コーチからの返信をお待ちください</div>
+  </div>
+</section>`;
+  const stars = Array.from({length:5}, (_,i) => `<span style="color:${i < fb.rating ? '#ff9500' : 'rgba(60,60,67,0.18)'}">★</span>`).join('');
+  const pts = (fb.points || []).map(p => {
+    const pos = p.type === 'positive';
+    return `<div style="display:flex;align-items:flex-start;gap:0.4rem;padding:0.25rem 0"><span style="flex-shrink:0;font-size:0.78rem;font-weight:800;color:${pos?'#34c759':'#ff9500'}">${pos?'✓':'→'}</span><span style="font-size:0.85rem;font-weight:600;color:${pos?'#000':'rgba(60,60,67,0.75)'}">${p.text}</span></div>`;
+  }).join('');
+  return `
+<section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div style="padding:0.65rem 1rem 0.4rem;display:flex;align-items:center;gap:0.4rem">
+    <span style="font-size:0.78rem;font-weight:700;color:rgba(60,60,67,0.5);text-transform:uppercase;letter-spacing:.04em">コーチフィードバック</span>
+    ${fb.isNew ? `<span style="font-size:0.65rem;font-weight:800;border-radius:4px;padding:0.05rem 0.35rem;background:#ff3b30;color:#fff">NEW</span>` : ''}
+  </div>
+  <div style="border-top:1px solid rgba(60,60,67,0.08);padding:0.75rem 1rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem">
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <div style="width:1.9rem;height:1.9rem;border-radius:50%;background:rgba(10,132,255,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem">${COACH.emoji}</div>
+        <div>
+          <div style="font-size:0.88rem;font-weight:700">${COACH.name}</div>
+          ${fb.sentAt ? `<div style="font-size:0.68rem;color:rgba(60,60,67,0.45)">${fb.sentAt} 送信</div>` : ''}
+        </div>
+      </div>
+      <div style="font-size:1rem;letter-spacing:0.05em">${stars}</div>
+    </div>
+    <p style="font-size:0.88rem;line-height:1.65;padding:0.55rem 0.7rem;background:rgba(60,60,67,0.03);border-radius:8px;margin-bottom:0.6rem">${fb.text}</p>
+    <div style="border-top:1px solid rgba(60,60,67,0.08);padding-top:0.4rem">${pts}</div>
+  </div>
+</section>`;
+}
+
+function selectMenuDay(ds) {
+  selMenuDate = ds; renderMenu();
+  setTimeout(() => {
+    const el = document.querySelector('#menu-content section:nth-child(3)');
+    if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+  }, 60);
+}
+
+// ══════════════════════════════════════════════════════════
+//  View: 履歴タブ
+// ══════════════════════════════════════════════════════════
+
+function renderHistory() {
+  const streak = calcStreak();
+  const wos = getAllWorkouts();
+  const totalDays = Object.keys(wos).length;
+  const totalMins = Object.values(wos).reduce((s,w) => s + (w.duration||0), 0);
+  const el = document.getElementById('history-content');
+  el.innerHTML = buildStatBanner(streak, totalDays, totalMins)
+    + buildCalendar(new Date().getFullYear(), new Date().getMonth()+1)
+    + buildExerciseListSection()
+    + buildHistoryList();
+}
+
+function buildStatBanner(streak, totalDays, totalMins) {
+  return `
+<div class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="grid grid-cols-3">
+    <div class="flex flex-col items-center py-4" style="border-right:1px solid rgba(60,60,67,0.1)">
+      <span class="text-[1.85rem] font-bold tabular-nums leading-none" style="color:#007aff">${streak}</span>
+      <span class="text-[0.75rem] font-semibold mt-1" style="color:rgba(60,60,67,0.55)">連続日数 🔥</span>
+    </div>
+    <div class="flex flex-col items-center py-4" style="border-right:1px solid rgba(60,60,67,0.1)">
+      <span class="text-[1.85rem] font-bold tabular-nums leading-none" style="color:#34c759">${totalDays}</span>
+      <span class="text-[0.75rem] font-semibold mt-1" style="color:rgba(60,60,67,0.55)">通算回数</span>
+    </div>
+    <div class="flex flex-col items-center py-4">
+      <span class="text-[1.85rem] font-bold tabular-nums leading-none" style="color:#ff9500">${Math.round(totalMins/60*10)/10}</span>
+      <span class="text-[0.75rem] font-semibold mt-1" style="color:rgba(60,60,67,0.55)">通算時間（h）</span>
+    </div>
+  </div>
+</div>`;
+}
+
+function buildCalendar(year, month) {
+  const wos = getAllWorkouts();
+  const firstDow = (new Date(year, month-1, 1).getDay()+6) % 7;
+  const days = new Date(year, month, 0).getDate();
+  const cells = [...Array(firstDow).fill(null), ...Array.from({length:days},(_,i)=>i+1)];
+  while (cells.length % 7) cells.push(null);
+  const hdrs = ['月','火','水','木','金','土','日'].map(h =>
+    `<div style="text-align:center;font-size:0.72rem;font-weight:600;color:rgba(60,60,67,0.42);padding:0.3rem 0">${h}</div>`
+  ).join('');
+  const cellHtml = cells.map(d => {
+    if (!d) return `<div></div>`;
+    const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const wo = wos[ds], isToday = ds === TODAY, isFut = ds > TODAY;
+    const col = wo ? (C[wo.type] || C['その他']) : null;
+    let wrapStyle = 'display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;padding:0.32rem 0;gap:3px;';
+    let numStyle  = 'font-size:0.88rem;line-height:1;';
+    if (isToday)   { wrapStyle += 'background:#007aff;'; numStyle += 'font-weight:700;color:#fff;'; }
+    else if (isFut){ numStyle += 'font-weight:400;color:rgba(60,60,67,0.22);'; }
+    else if (wo)   { numStyle += 'font-weight:700;color:#000;'; }
+    else           { numStyle += 'font-weight:400;color:rgba(60,60,67,0.38);'; }
+    const dot = col ? `<div style="width:5px;height:5px;border-radius:50%;background:${isToday?'rgba(255,255,255,0.85)':col.dot}"></div>` : '';
+    const clickable = !!wo || isToday;
+    return `<div class="${clickable?'cal-btn':''}" style="${wrapStyle}" ${clickable?`onclick="gotoDate('${ds}')" role="button" tabindex="0"`:''}>
+<span style="${numStyle}">${d}</span>${dot}</div>`;
+  }).join('');
+  const woCount = cells.filter(d => {
+    if (!d) return false;
+    return !!wos[`${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`];
+  }).length;
+  return `
+<section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="px-4 pt-4 pb-3">
+    <div class="flex items-baseline justify-between mb-3">
+      <span style="font-size:1rem;font-weight:700">${year}年${month}月</span>
+      <span style="font-size:0.82rem;font-weight:600;color:rgba(60,60,67,0.55)">${woCount} 回</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${hdrs}${cellHtml}</div>
+  </div>
+</section>`;
+}
+
+function buildExerciseListSection() {
+  const grouped = getAllExByMuscle();
+  if (!Object.keys(grouped).length) return '';
+  const muscleOrder = ['胸','肩','三頭','背中','二頭','脚','腹'];
+  const sortedMuscles = Object.keys(grouped).sort((a,b) => {
+    const ia = muscleOrder.indexOf(a), ib = muscleOrder.indexOf(b);
+    return (ia===-1?99:ia) - (ib===-1?99:ib);
+  });
+  const groupHtml = sortedMuscles.map(muscle => {
+    const exes = grouped[muscle];
+    const mc = mcOf(muscle);
+    const rows = exes.map((ex,i) => {
+      const sep = i > 0 ? `<div style="height:1px;background:rgba(60,60,67,0.08)"></div>` : '';
+      const best = ex.isSeconds ? `最大 ${ex.bestWeight??'―'}秒` : ex.bestWeight ? `最高 ${ex.bestWeight} kg` : '自重';
+      return `${sep}
+<div class="tap" onclick="openExDetail('${ex.name.replace(/'/g,"\\'")}');" style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem">
+  <div style="min-width:0;flex:1">
+    <div style="font-size:0.95rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ex.name}</div>
+    <div style="font-size:0.78rem;color:rgba(60,60,67,0.5);margin-top:0.15rem">${ex.sessionCount}回 · 最終:${fmtRelDate(ex.lastDate)}</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;margin-left:0.5rem">
+    <span style="font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.5)">${best}</span>
+    <span style="font-size:1rem;color:rgba(60,60,67,0.25)">›</span>
+  </div>
+</div>`;
+    }).join('');
+    return `
+<div class="mb-2">
+  <div class="px-1 mb-1.5"><span style="border-radius:999px;padding:0.12rem 0.55rem;font-size:0.75rem;font-weight:700;background:${mc.bg};color:${mc.text}">${muscle}</span></div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">${rows}</div>
+</div>`;
+  }).join('');
+  return `
+<section class="mb-3">
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide" style="color:rgba(60,60,67,0.5)">種目別履歴</div>
+  ${groupHtml}
+</section>`;
+}
+
+function buildHistoryList() {
+  const wos = getAllWorkouts();
+  const keys = Object.keys(wos).sort((a,b) => b.localeCompare(a)).slice(0, 30);
+  if (!keys.length) return '';
+  const rows = keys.map((ds,i) => {
+    const wo = wos[ds], col = C[wo.type] || C['その他'];
+    const dt = new Date(ds+'T00:00:00'), dows = ['日','月','火','水','木','金','土'];
+    const label = ds === TODAY ? '今日' : `${dt.getMonth()+1}月${dt.getDate()}日（${dows[dt.getDay()]}）`;
+    const sets = totalSets(wo), vol = totalVol(wo);
+    const volStr = vol >= 1000 ? (vol/1000).toFixed(1)+' t' : vol.toLocaleString()+' kg';
+    const sep = i > 0 ? `<div style="height:1px;background:rgba(60,60,67,0.1);margin-left:3.75rem"></div>` : '';
+    return `${sep}
+<div class="tap" onclick="gotoDate('${ds}')" style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem">
+  <div style="flex-shrink:0;width:2.5rem;height:2.5rem;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${col.bg}">
+    <div style="width:0.7rem;height:0.7rem;border-radius:50%;background:${col.dot}"></div>
+  </div>
+  <div style="flex:1;min-width:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+      <span style="font-size:0.95rem;font-weight:700">${label}</span>
+      <span style="font-size:0.8rem;font-weight:500;color:rgba(60,60,67,0.5);flex-shrink:0">${wo.duration ? `⏱ ${wo.duration}分` : ''}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;flex-wrap:wrap">
+      <span style="font-size:0.76rem;font-weight:600;border-radius:999px;padding:0.1rem 0.5rem;background:${col.bg};color:${col.text}">${wo.type}</span>
+      <span style="font-size:0.76rem;color:rgba(60,60,67,0.5)">${sets}セット</span>
+      <span style="font-size:0.76rem;color:rgba(60,60,67,0.4)">${volStr}</span>
+    </div>
+  </div>
+  <div style="flex-shrink:0;font-size:1.1rem;color:rgba(60,60,67,0.28)">›</div>
+</div>`;
+  }).join('');
+  return `
+<section class="mb-3">
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide" style="color:rgba(60,60,67,0.5)">最近のトレーニング</div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">${rows}</div>
+</section>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  ワークアウトエディタ
+// ══════════════════════════════════════════════════════════
+
+let _ed = null; // editor state
+
+function openEditor(date, existingWo) {
+  const wo = existingWo || getWorkout(date);
+  _ed = {
+    date,
+    type: wo ? wo.type : WORKOUT_TYPES[0],
+    duration: wo ? wo.duration : null,
+    exercises: wo ? JSON.parse(JSON.stringify(wo.exercises)) : [],
+    memo: wo ? wo.memo : '',
+  };
+  document.getElementById('editor-title').textContent = wo ? 'トレーニングを編集' : 'トレーニングを記録';
+  renderEditorBody();
+  showOverlay('editor-ov');
+  window.scrollTo({ top:0 });
+}
+
+function closeEditor() { hideOverlay('editor-ov'); }
+
+function saveEditor() {
+  if (!_ed.exercises.length) { alert('種目を1つ以上追加してください'); return; }
+  const wo = {
+    type: _ed.type,
+    duration: _ed.duration || null,
+    exercises: _ed.exercises,
+    memo: _ed.memo || '',
+    updatedAt: new Date().toISOString(),
+  };
+  setWorkout(_ed.date, wo);
+  closeEditor();
+  if (document.getElementById('view-log').classList.contains('hidden') === false) renderLog();
+}
+
+function renderEditorBody() {
+  const typePills = WORKOUT_TYPES.map(t => {
+    const sel = t === _ed.type ? 'sel' : '';
+    const c = C[t] || C['その他'];
+    return `<button class="type-chip ${sel}" onclick="setEditorType('${t}')" style="display:inline-flex;align-items:center;padding:0.35rem 0.75rem;font-size:0.8rem;font-weight:600;background:${sel?c.bg:'rgba(60,60,67,0.06)'};color:${sel?c.text:'rgba(60,60,67,0.7)'};border:none">${t}</button>`;
+  }).join('');
+
+  const exCards = _ed.exercises.map((ex,ei) => buildEditorExCard(ex, ei)).join('');
+
+  const durVal = _ed.duration || '';
+  const memoVal = (_ed.memo || '').replace(/"/g,'&quot;');
+
+  document.getElementById('editor-body').innerHTML = `
+<!-- ワークアウト種別 -->
+<div class="mb-4">
+  <div style="font-size:0.78rem;font-weight:600;text-transform:uppercase;color:rgba(60,60,67,0.5);margin-bottom:0.5rem">種別</div>
+  <div style="display:flex;flex-wrap:wrap;gap:0.4rem">${typePills}</div>
+</div>
+
+<!-- 時間 -->
+<div class="mb-4">
+  <div style="font-size:0.78rem;font-weight:600;text-transform:uppercase;color:rgba(60,60,67,0.5);margin-bottom:0.5rem">所要時間（分）</div>
+  <div style="display:flex;align-items:center;gap:0.5rem">
+    <input type="number" min="1" max="300" value="${durVal}" placeholder="例: 60"
+      oninput="_ed.duration = this.value ? parseInt(this.value) : null"
+      style="width:5rem;text-align:center;font-size:1rem;font-weight:600;border:1.5px solid rgba(60,60,67,0.18);border-radius:8px;padding:0.35rem 0.5rem;background:#f8f8fa;outline:none" />
+    <span style="font-size:0.9rem;color:rgba(60,60,67,0.55)">分</span>
+  </div>
+</div>
+
+<!-- 種目リスト -->
+<div class="mb-3">
+  <div style="font-size:0.78rem;font-weight:600;text-transform:uppercase;color:rgba(60,60,67,0.5);margin-bottom:0.5rem">種目</div>
+  <div id="ed-ex-list" class="rounded-[14px] bg-white overflow-hidden mb-2" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+    ${exCards || '<div style="padding:1rem;text-align:center;font-size:0.88rem;color:rgba(60,60,67,0.45)">種目を追加してください</div>'}
+  </div>
+  <button onclick="openPicker()" style="width:100%;background:rgba(10,132,255,0.1);color:#007aff;border:none;border-radius:12px;padding:0.65rem;font-size:0.9rem;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">＋ 種目を追加</button>
+</div>
+
+<!-- メモ -->
+<div class="mb-4">
+  <div style="font-size:0.78rem;font-weight:600;text-transform:uppercase;color:rgba(60,60,67,0.5);margin-bottom:0.5rem">メモ</div>
+  <textarea rows="2" placeholder="今日の気づきや体調など..." oninput="_ed.memo = this.value"
+    style="width:100%;border:1.5px solid rgba(60,60,67,0.15);border-radius:10px;padding:0.6rem 0.75rem;font-size:0.9rem;background:#fff;outline:none;resize:none;font-family:inherit">${memoVal}</textarea>
+</div>`;
+}
+
+function buildEditorExCard(ex, ei) {
+  const mc = mcOf(ex.muscle);
+  const bdr = ei > 0 ? 'border-top:1px solid rgba(60,60,67,0.1)' : '';
+  const setRows = ex.sets.map((s,si) => buildEditorSetRow(ex, ei, s, si)).join('');
+  return `
+<div id="ed-ex-${ei}" style="${bdr}">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1rem 0.35rem">
+    <div style="display:flex;align-items:center;gap:0.4rem;min-width:0;flex:1">
+      <span style="font-size:0.95rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ex.name}</span>
+      <span style="flex-shrink:0;border-radius:999px;padding:0.08rem 0.4rem;font-size:0.7rem;font-weight:600;background:${mc.bg};color:${mc.text}">${ex.muscle}</span>
+    </div>
+    <button onclick="removeExercise(${ei})" style="flex-shrink:0;border:none;background:none;cursor:pointer;font-size:0.9rem;color:rgba(255,59,48,0.7);padding:0.2rem 0.4rem">🗑</button>
+  </div>
+  <div style="display:grid;grid-template-columns:2rem 1fr 1fr 2rem;padding:0.25rem 1rem;background:rgba(60,60,67,0.04)">
+    <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35)">SET</span>
+    <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35)">重量</span>
+    <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35)">回数</span>
+    <span></span>
+  </div>
+  <div id="ed-sets-${ei}">${setRows}</div>
+  <div style="padding:0.4rem 1rem 0.6rem">
+    <button onclick="addSet(${ei})" style="width:100%;background:rgba(52,199,89,0.1);color:#1a8c34;border:none;border-radius:8px;padding:0.45rem;font-size:0.82rem;font-weight:700;cursor:pointer">＋ セットを追加</button>
+  </div>
+</div>`;
+}
+
+function buildEditorSetRow(ex, ei, s, si) {
+  const isLast = si === ex.sets.length - 1;
+  const bdr = !isLast ? 'border-bottom:1px solid rgba(60,60,67,0.06)' : '';
+  const wVal = s.w || 0;
+  const rVal = s.r || 0;
+  const wLabel = ex.isSeconds ? '―' : 'kg';
+  const rLabel = ex.isSeconds ? '秒' : '回';
+  return `
+<div style="display:grid;grid-template-columns:2rem 1fr 1fr 2rem;align-items:center;padding:0.4rem 1rem;${bdr}" id="ed-set-${ei}-${si}">
+  <span style="font-size:0.78rem;font-weight:700;color:rgba(60,60,67,0.38)">${si+1}</span>
+  <div style="display:flex;align-items:center;gap:0.25rem">
+    ${ex.isSeconds
+      ? `<span style="font-size:0.88rem;color:rgba(60,60,67,0.4)">―</span>`
+      : `<input type="number" min="0" max="999" step="0.5" value="${wVal}" class="num-input"
+            oninput="updateSet(${ei},${si},'w', parseFloat(this.value)||0)" />
+         <span style="font-size:0.75rem;color:rgba(60,60,67,0.5)">${wLabel}</span>`}
+  </div>
+  <div style="display:flex;align-items:center;gap:0.25rem">
+    <input type="number" min="0" max="999" value="${rVal}" class="num-input"
+           oninput="updateSet(${ei},${si},'r', parseInt(this.value)||0)" />
+    <span style="font-size:0.75rem;color:rgba(60,60,67,0.5)">${rLabel}</span>
+  </div>
+  <button onclick="removeSet(${ei},${si})" style="border:none;background:none;cursor:pointer;font-size:0.9rem;color:rgba(255,59,48,0.6);padding:0.2rem">×</button>
+</div>`;
+}
+
+function setEditorType(t) {
+  _ed.type = t;
+  document.querySelectorAll('.type-chip').forEach(btn => {
+    const isThis = btn.textContent.trim() === t;
+    btn.classList.toggle('sel', isThis);
+    const c = C[t] || C['その他'];
+    if (isThis) { btn.style.background = c.bg; btn.style.color = c.text; }
+    else { btn.style.background = 'rgba(60,60,67,0.06)'; btn.style.color = 'rgba(60,60,67,0.7)'; }
+  });
+}
+
+function removeExercise(ei) {
+  _ed.exercises.splice(ei, 1);
+  renderEditorBody();
+}
+
+function addSet(ei) {
+  const ex = _ed.exercises[ei];
+  const last = ex.sets[ex.sets.length - 1];
+  ex.sets.push({ id: uid(), w: last ? last.w : 0, r: last ? last.r : 10 });
+  const container = document.getElementById(`ed-sets-${ei}`);
+  if (container) {
+    container.innerHTML = ex.sets.map((s,si) => buildEditorSetRow(ex,ei,s,si)).join('');
+  }
+}
+
+function removeSet(ei, si) {
+  const ex = _ed.exercises[ei];
+  if (ex.sets.length <= 1) { alert('最低1セットが必要です'); return; }
+  ex.sets.splice(si, 1);
+  const container = document.getElementById(`ed-sets-${ei}`);
+  if (container) container.innerHTML = ex.sets.map((s,sj) => buildEditorSetRow(ex,ei,s,sj)).join('');
+}
+
+function updateSet(ei, si, field, val) {
+  if (_ed.exercises[ei] && _ed.exercises[ei].sets[si]) {
+    _ed.exercises[ei].sets[si][field] = val;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  種目ピッカー
+// ══════════════════════════════════════════════════════════
+
+function openPicker() {
+  filterMuscle = null;
+  document.getElementById('picker-search').value = '';
+  renderPickerMuscles();
+  renderPickerList('');
+  showOverlay('picker-ov');
+}
+function closePicker() { hideOverlay('picker-ov'); }
+
+function renderPickerMuscles() {
+  const muscles = Object.keys(EXERCISE_DB);
+  document.getElementById('picker-muscles').innerHTML = muscles.map(m => {
+    const mc = mcOf(m);
+    const on = m === filterMuscle ? 'on' : '';
+    return `<button class="mpill ${on}" onclick="setPickerMuscle('${m}')"
+      style="flex-shrink:0;padding:0.25rem 0.6rem;font-size:0.75rem;font-weight:600;border:none;background:${on?'#007aff':mc.bg};color:${on?'#fff':mc.text};cursor:pointer">${m}</button>`;
+  }).join('');
+}
+
+function setPickerMuscle(m) {
+  filterMuscle = filterMuscle === m ? null : m;
+  renderPickerMuscles();
+  filterPicker(document.getElementById('picker-search').value);
+}
+
+function filterPicker(query) {
+  renderPickerList(query);
+}
+
+function renderPickerList(query) {
+  const q = query.trim().toLowerCase();
+  let allEx = [];
+  if (filterMuscle) {
+    allEx = (EXERCISE_DB[filterMuscle] || []).map(n => ({ name:n, muscle:filterMuscle }));
+  } else {
+    Object.entries(EXERCISE_DB).forEach(([muscle, names]) => {
+      names.forEach(n => allEx.push({ name:n, muscle }));
+    });
+  }
+  if (q) allEx = allEx.filter(e => e.name.toLowerCase().includes(q));
+  const rows = allEx.map((e,i) => {
+    const mc = mcOf(e.muscle);
+    const sep = i > 0 ? `<div style="height:1px;background:rgba(60,60,67,0.08)"></div>` : '';
+    return `${sep}
+<div class="tap" onclick="pickExercise('${e.name.replace(/'/g,"\\'")}','${e.muscle}')"
+     style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem">
+  <span style="font-size:0.95rem;font-weight:600">${e.name}</span>
+  <span style="font-size:0.75rem;font-weight:600;border-radius:999px;padding:0.1rem 0.45rem;background:${mc.bg};color:${mc.text}">${e.muscle}</span>
+</div>`;
+  }).join('');
+
+  // free input
+  const freeRow = q ? `
+<div style="border-top:1px solid rgba(60,60,67,0.08)">
+  <div class="tap" onclick="pickExercise('${q.replace(/'/g,"\\'")}','―')"
+       style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem">
+    <span style="font-size:0.95rem;font-weight:600">「${q}」を追加</span>
+    <span style="font-size:0.75rem;color:rgba(60,60,67,0.45)">自由入力</span>
+  </div>
+</div>` : '';
+
+  document.getElementById('picker-list').innerHTML = `
+<div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  ${rows || `<div style="padding:1.5rem;text-align:center;font-size:0.88rem;color:rgba(60,60,67,0.45)">見つかりません</div>`}
+  ${freeRow}
+</div>`;
+}
+
+function pickExercise(name, muscle) {
+  if (!_ed) return;
+  const mc = mcOf(muscle);
+  _ed.exercises.push({
+    id: uid(), name, muscle,
+    isSeconds: name.includes('プランク') || name.includes('秒'),
+    sets: [{ id: uid(), w: 0, r: name.includes('プランク') ? 60 : 10 }],
+  });
+  closePicker();
+  renderEditorBody();
+}
+
+// ══════════════════════════════════════════════════════════
+//  種目別詳細オーバーレイ
+// ══════════════════════════════════════════════════════════
+
+function openExDetail(name) {
+  const sessions = getExSessions(name);
+  if (!sessions.length) return;
+  const firstEx = sessions[0].ex;
+  const mc = mcOf(firstEx.muscle);
+  const allMaxW = sessions.map(s => s.maxW).filter(Boolean);
+  const bestWeight = allMaxW.length ? Math.max(...allMaxW) : null;
+  const totalSetsCount = sessions.reduce((s,ss) => s + ss.ex.sets.length, 0);
+  const totalVolAll = sessions.reduce((s,ss) => s + (ss.vol||0), 0);
+
+  document.getElementById('ex-title').textContent = name;
+  document.getElementById('ex-subtitle').textContent = `${firstEx.muscle}　·　${sessions.length} セッション`;
+
+  const kpi1 = `${sessions.length}回`;
+  const kpi2 = bestWeight ? `${bestWeight} kg` : firstEx.isSeconds
+    ? `${Math.max(...sessions.flatMap(s => s.ex.sets.map(x => x.r)))} 秒` : '自重';
+  const kpi3 = totalVolAll > 0
+    ? (totalVolAll >= 1000 ? (totalVolAll/1000).toFixed(1)+' t' : totalVolAll.toLocaleString()+' kg')
+    : '―';
+
+  const kpiHtml = `
+<div class="rounded-[14px] bg-white overflow-hidden mb-3" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="grid grid-cols-3">
+    <div class="flex flex-col items-center py-3"><span class="text-[1.4rem] font-bold tabular-nums" style="color:#007aff">${kpi1}</span><span class="text-[0.72rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">実施回数</span></div>
+    <div class="flex flex-col items-center py-3" style="border-left:1px solid rgba(60,60,67,0.1);border-right:1px solid rgba(60,60,67,0.1)">
+      <span class="text-[1.4rem] font-bold tabular-nums" style="color:#ff2d55">${kpi2}</span><span class="text-[0.72rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">${firstEx.isSeconds?'最長時間':'最高重量'}</span></div>
+    <div class="flex flex-col items-center py-3"><span class="text-[1.3rem] font-bold tabular-nums" style="color:#34c759">${kpi3}</span><span class="text-[0.72rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">通算ボリューム</span></div>
+  </div>
+</div>`;
+
+  const chartSessions = sessions.filter(s => s.maxW !== null);
+  const chartHtml = (!firstEx.isSeconds && chartSessions.length >= 2) ? buildChart(chartSessions) : '';
+
+  document.getElementById('ex-body').innerHTML = kpiHtml + chartHtml + buildSessionList(sessions);
+  showOverlay('ex-ov');
+}
+function closeExDetail() { hideOverlay('ex-ov'); }
+
+function buildChart(sessions) {
+  const W=320, H=130, L=42, R=12, T=18, B=26, cW=W-L-R, cH=H-T-B;
+  const weights = sessions.map(s => s.maxW);
+  const rawMax = Math.max(...weights), rawMin = Math.min(...weights);
+  const range = rawMax - rawMin || rawMax*0.1 || 10;
+  const yMin = Math.max(0, rawMin - range*0.5), yMax = rawMax + range*0.5, yRange = yMax - yMin;
+  const xOf = i => L + (sessions.length===1 ? cW/2 : (i/(sessions.length-1))*cW);
+  const yOf = w => T + cH - ((w - yMin) / yRange) * cH;
+  const pts = sessions.map((s,i) => ({ x:xOf(i), y:yOf(s.maxW), w:s.maxW, date:s.date }));
+  const poly = pts.map(p => `${p.x},${p.y}`).join(' ');
+  const pbY = yOf(rawMax);
+  const dots = pts.map((p,i) => {
+    const isPB = p.w === rawMax, isLast = i === pts.length-1;
+    const fill = isPB ? '#ff2d55' : '#007aff';
+    const anchor = i===0 ? 'start' : i===pts.length-1 ? 'end' : 'middle';
+    const nW = Number.isInteger(p.w) ? String(p.w) : p.w.toFixed(1);
+    return `<circle cx="${p.x}" cy="${p.y}" r="${isPB?5:4}" fill="${fill}" />
+${(isPB || isLast || i===0) ? `<text x="${p.x}" y="${p.y-8}" text-anchor="${anchor}" style="font-size:0.68rem;fill:${isPB?'#ff2d55':'#007aff'};font-weight:700">${nW}</text>` : ''}`;
+  }).join('');
+  const dateLabels = pts.map((p,i) => {
+    const show = i===0 || i===pts.length-1 || (pts.length>=4 && i===Math.floor(pts.length/2));
+    const anchor = i===0 ? 'start' : i===pts.length-1 ? 'end' : 'middle';
+    return show ? `<text x="${p.x}" y="${H-3}" text-anchor="${anchor}" style="font-size:0.64rem;fill:rgba(60,60,67,0.42);font-weight:600">${fmtShort(p.date)}</text>` : '';
+  }).join('');
+  const niceW = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
+  const yLabels = `<text x="${L-5}" y="${yOf(rawMin)+4}" text-anchor="end" style="font-size:0.64rem;fill:rgba(60,60,67,0.42);font-weight:600">${niceW(rawMin)}</text>
+${rawMax !== rawMin ? `<text x="${L-5}" y="${yOf(rawMax)+4}" text-anchor="end" style="font-size:0.64rem;fill:#ff2d55;font-weight:700">${niceW(rawMax)}</text>` : ''}`;
+  return `
+<section class="mb-3">
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide" style="color:rgba(60,60,67,0.5)">最高重量の推移</div>
+  <div class="rounded-[14px] bg-white overflow-hidden px-3 pt-3 pb-2" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+    <svg class="chart" viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;overflow:visible">
+      <line class="axis" x1="${L}" y1="${T+cH}" x2="${W-R}" y2="${T+cH}" />
+      <line class="pb-line" x1="${L}" y1="${pbY}" x2="${W-R}" y2="${pbY}" opacity="0.55" />
+      <polyline points="${poly}" />
+      ${dots}${dateLabels}${yLabels}
+    </svg>
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-top:0.25rem;padding:0 0.2rem;font-size:0.7rem;color:rgba(60,60,67,0.5)">
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:20px;height:2.5px;border-radius:2px;background:#007aff"></span>使用重量</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;border-top:2px dashed #ff2d55"></span>自己ベスト</span>
+    </div>
+  </div>
+</section>`;
+}
+
+function buildSessionList(sessions) {
+  const sorted = [...sessions].sort((a,b) => b.date.localeCompare(a.date));
+  const allMaxW = sessions.map(s => s.maxW).filter(Boolean);
+  const globalPB = allMaxW.length ? Math.max(...allMaxW) : null;
+  const rows = sorted.map((sess,i) => {
+    const ex = sess.ex;
+    const dt = new Date(sess.date+'T00:00:00'), dows = ['日','月','火','水','木','金','土'];
+    const dateLabel = `${dt.getMonth()+1}月${dt.getDate()}日（${dows[dt.getDay()]}）`;
+    const isPB = globalPB !== null && sess.maxW === globalPB;
+    const volStr = sess.vol ? (sess.vol>=1000?(sess.vol/1000).toFixed(1)+' t':sess.vol.toLocaleString()+' kg') : null;
+    const setRows = ex.sets.map((s,si) => {
+      const isBest = !ex.isSeconds && s.w === sess.maxW && sess.maxW !== null;
+      const wL = s.w===0?(ex.isSeconds?'―':'自重'):`${s.w} kg`;
+      const rL = ex.isSeconds?`${s.r} 秒`:`${s.r} 回`;
+      const bdr = si < ex.sets.length-1 ? 'border-bottom:1px solid rgba(60,60,67,0.06)' : '';
+      return `<div style="display:grid;grid-template-columns:2rem 1fr auto auto;align-items:center;padding:0.42rem 1rem;${bdr}">
+<span style="font-size:0.76rem;font-weight:700;color:rgba(60,60,67,0.35)">${si+1}</span>
+<span style="font-size:0.9rem;font-weight:600;color:${isBest?'#007aff':'#000'}">${wL}</span>
+<span style="font-size:0.82rem;font-weight:500;color:rgba(60,60,67,0.55);margin-right:0.4rem">× ${rL}</span>
+${isBest?`<span style="font-size:0.68rem;font-weight:700;color:#007aff;background:rgba(10,132,255,0.1);border-radius:4px;padding:0.05rem 0.3rem">最高</span>`:'<span></span>'}
+</div>`;
+    }).join('');
+    const sep = i > 0 ? `<div style="height:6px;background:#f2f2f7"></div>` : '';
+    return `${sep}
+<div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:0.55rem 1rem 0.25rem;background:rgba(60,60,67,0.025)">
+    <div style="display:flex;align-items:center;gap:0.5rem">
+      <span style="font-size:0.9rem;font-weight:700">${dateLabel}</span>
+      <span style="font-size:0.75rem;color:rgba(60,60,67,0.45)">${fmtRelDate(sess.date)}</span>
+      ${isPB?`<span style="font-size:0.68rem;font-weight:700;color:#ff2d55;background:rgba(255,45,85,0.1);border-radius:4px;padding:0.05rem 0.3rem">PB 🏆</span>`:''}
+    </div>
+    ${volStr?`<span style="font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.4)">${volStr}</span>`:''}
+  </div>
+  <div style="display:grid;grid-template-columns:2rem 1fr auto auto;padding:0.24rem 1rem;background:rgba(60,60,67,0.04)">
+    <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35)">SET</span>
+    <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35)">重量</span>
+    <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35);margin-right:0.4rem">回数</span>
+    <span></span>
+  </div>
+  ${setRows}
+</div>`;
+  }).join('');
+  return `
+<section>
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide" style="color:rgba(60,60,67,0.5)">セッション履歴</div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">${rows}</div>
+</section>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  設定 / インポート・エクスポート
+// ══════════════════════════════════════════════════════════
+
+function openSettings() {
+  const s = getSettings();
+  document.getElementById('settings-body').innerHTML = `
+<div class="mb-4">
+  <div style="font-size:0.78rem;font-weight:600;text-transform:uppercase;color:rgba(60,60,67,0.5);margin-bottom:0.5rem">コーチ名</div>
+  <input id="cfg-coach-name" type="text" value="${(s.coachName || COACH.name).replace(/"/g,'&quot;')}"
+    placeholder="${COACH.name}"
+    style="width:100%;border:1.5px solid rgba(60,60,67,0.15);border-radius:10px;padding:0.5rem 0.75rem;font-size:0.9rem;background:#fff;outline:none" />
+</div>
+
+<div class="mb-4">
+  <div style="font-size:0.78rem;font-weight:600;text-transform:uppercase;color:rgba(60,60,67,0.5);margin-bottom:0.5rem">Gemini API キー</div>
+  <input id="cfg-api-key" type="password" value="${(s.geminiApiKey || '').replace(/"/g,'&quot;')}"
+    placeholder="AIza..."
+    style="width:100%;border:1.5px solid rgba(60,60,67,0.15);border-radius:10px;padding:0.5rem 0.75rem;font-size:0.9rem;background:#fff;outline:none" />
+  <div style="font-size:0.75rem;color:rgba(60,60,67,0.5);margin-top:0.3rem">AI によるメニュー・フィードバック自動生成に使用します</div>
+</div>
+
+<button onclick="saveSettingsFromUI()" style="width:100%;background:#007aff;color:#fff;border:none;border-radius:12px;padding:0.7rem;font-size:0.95rem;font-weight:700;cursor:pointer;margin-bottom:1rem">設定を保存</button>
+
+<div style="height:1px;background:rgba(60,60,67,0.1);margin-bottom:1rem"></div>
+
+<div class="mb-3">
+  <div style="font-size:0.78rem;font-weight:600;text-transform:uppercase;color:rgba(60,60,67,0.5);margin-bottom:0.5rem">データ管理</div>
+  <div style="display:flex;flex-direction:column;gap:0.5rem">
+    <button onclick="exportData()" style="background:rgba(52,199,89,0.1);color:#1a8c34;border:none;border-radius:12px;padding:0.6rem;font-size:0.88rem;font-weight:600;cursor:pointer">📤 ワークアウトデータをエクスポート</button>
+    <label style="display:block;cursor:pointer">
+      <span style="display:block;background:rgba(10,132,255,0.1);color:#007aff;border:none;border-radius:12px;padding:0.6rem;font-size:0.88rem;font-weight:600;text-align:center;cursor:pointer">📥 週間メニューをインポート（JSON）</span>
+      <input type="file" accept=".json" onchange="importMenuFile(this)" style="display:none" />
+    </label>
+    <button onclick="importSampleMenu()" style="background:rgba(175,82,222,0.1);color:#8944ab;border:none;border-radius:12px;padding:0.6rem;font-size:0.88rem;font-weight:600;cursor:pointer">📋 サンプルメニューを読み込む</button>
+  </div>
+</div>
+
+<div style="height:1px;background:rgba(60,60,67,0.1);margin:1rem 0"></div>
+
+<button onclick="clearAllData()" style="width:100%;background:rgba(255,59,48,0.08);color:#ff3b30;border:none;border-radius:12px;padding:0.6rem;font-size:0.88rem;font-weight:600;cursor:pointer">⚠️ すべてのデータを削除</button>`;
+  showOverlay('settings-ov');
+}
+function closeSettings() { hideOverlay('settings-ov'); }
+
+function saveSettingsFromUI() {
+  const s = getSettings();
+  s.coachName   = document.getElementById('cfg-coach-name').value.trim() || COACH.name;
+  s.geminiApiKey = document.getElementById('cfg-api-key').value.trim();
+  saveSettings(s);
+  alert('設定を保存しました');
+}
+
+function exportData() {
+  const wos = getAllWorkouts();
+  const blob = new Blob([JSON.stringify(wos, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `workout_${TODAY}.json`;
+  a.click();
+}
+
+function importMenuFile(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const plan = JSON.parse(e.target.result);
+      if (!plan.weekStart || !plan.days) throw new Error('フォーマットエラー');
+      setWeeklyPlan(plan);
+      alert('週間メニューをインポートしました');
+      closeSettings();
+      if (!document.getElementById('view-menu').classList.contains('hidden')) renderMenu();
+    } catch(err) { alert('JSONの読み込みに失敗しました: ' + err.message); }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function importSampleMenu() {
+  const today = TODAY;
+  const d = new Date(today+'T00:00:00');
+  const dow = d.getDay(); // 0=Sun, 1=Mon...
+  const diffToMon = (dow === 0 ? -6 : 1 - dow);
+  const monday = shiftDate(today, diffToMon);
+  const sunday = shiftDate(monday, 6);
+
+  const samplePlan = {
+    weekStart: monday,
+    weekEnd:   sunday,
+    sentDate:  monday,
+    coachMessage: '今週もお疲れさまです！先週からの継続で、ベンチプレスとデッドリフトの重量維持を目標に頑張りましょう。各トレーニング後の栄養補給も忘れずに。',
+    days: {
+      [monday]: { type:'胸・肩・三頭筋', targets:[
+        { name:'ベンチプレス', sets:4, reps:'8-10', weight:'80 kg', note:'先週から維持。次回85kgを視野に。' },
+        { name:'インクライン D.プレス', sets:3, reps:'10-12', weight:'24 kg' },
+        { name:'ショルダープレス', sets:3, reps:'10-12', weight:'20 kg' },
+        { name:'ライイング T.エクステンション', sets:3, reps:'12', weight:'15 kg' },
+      ]},
+      [shiftDate(monday, 2)]: { type:'背中・二頭筋', targets:[
+        { name:'デッドリフト', sets:4, reps:'5', weight:'100 kg', note:'フォームを崩さないように。' },
+        { name:'ラットプルダウン', sets:3, reps:'10-12', weight:'60 kg' },
+        { name:'シーテッドロウ', sets:3, reps:'10-12', weight:'55 kg' },
+        { name:'バーベルカール', sets:3, reps:'10-12', weight:'30 kg' },
+      ]},
+      [shiftDate(monday, 4)]: { type:'脚・腹筋', targets:[
+        { name:'スクワット', sets:4, reps:'10', weight:'90 kg', note:'膝の状態を確認しながら。' },
+        { name:'レッグプレス', sets:3, reps:'12-15', weight:'150 kg' },
+        { name:'クランチ', sets:3, reps:'25', weight:'自重' },
+        { name:'プランク', sets:3, reps:'60秒', weight:'―', isSeconds:true },
+      ]},
+    },
+    feedbacks: {},
+  };
+  setWeeklyPlan(samplePlan);
+  alert('サンプルメニューを読み込みました');
+  closeSettings();
+  if (!document.getElementById('view-menu').classList.contains('hidden')) renderMenu();
+}
+
+function clearAllData() {
+  if (confirm('すべてのトレーニングデータを削除しますか？\nこの操作は取り消せません。')) {
+    localStorage.removeItem(STORE_KEY);
+    closeSettings();
+    switchTab('log');
+    renderLog();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  Gemini AI（設定にAPIキーがある場合）
+// ══════════════════════════════════════════════════════════
+
+async function generateMenuAI() {
+  const s = getSettings();
+  if (!(s.geminiApiKey || '').trim()) {
+    alert('設定から Gemini API キーを入力してください');
+    openSettings();
+    return;
+  }
+  const btn = event.target;
+  btn.textContent = '⏳ 生成中...'; btn.disabled = true;
+  try {
+    const wos = getAllWorkouts();
+    const recentKeys = Object.keys(wos).sort((a,b) => b.localeCompare(a)).slice(0,14);
+    const summary = recentKeys.map(ds => {
+      const wo = wos[ds];
+      const exList = wo.exercises.map(ex => `${ex.name}(${ex.muscle}): ${ex.sets.map(s => `${s.w||'自重'}×${s.r}`).join(', ')}`).join(' / ');
+      return `${ds}: ${wo.type} [${exList}]`;
+    }).join('\n');
+
+    const monday = (() => {
+      const d = new Date(TODAY+'T00:00:00'), dow = d.getDay();
+      return shiftDate(TODAY, dow===0 ? -6 : 1-dow);
+    })();
+
+    const prompt = `あなたはプロのフィットネスコーチです。以下の直近2週間のトレーニング記録を参考に、今週(月曜日:${monday})の週間トレーニングメニューをJSON形式で作成してください。
+
+## 直近のトレーニング記録:
+${summary || '記録なし（初週として基本的なメニューを作成してください）'}
+
+## 出力フォーマット（厳密にこのJSONのみ出力、説明文不要）:
+{
+  "weekStart": "${monday}",
+  "weekEnd": "${shiftDate(monday,6)}",
+  "sentDate": "${TODAY}",
+  "coachMessage": "コーチからの今週のメッセージ（100文字程度）",
+  "days": {
+    "YYYY-MM-DD": {
+      "type": "ワークアウト種別",
+      "targets": [
+        { "name": "種目名", "sets": 3, "reps": "10-12", "weight": "XX kg", "note": "任意メモ" }
+      ]
+    }
+  },
+  "feedbacks": {}
+}
+
+週に3〜4日トレーニング日を設定し、残りは休息日としてください（daysに含めない）。`;
+
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${s.geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      }
+    );
+    if (!resp.ok) throw new Error(`API Error ${resp.status}`);
+    const data = await resp.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('JSON が取得できませんでした');
+    const plan = JSON.parse(jsonMatch[0]);
+    if (!plan.weekStart || !plan.days) throw new Error('フォーマット不正');
+    setWeeklyPlan(plan);
+    renderMenu();
+    alert('AIによる週間メニューを生成しました！');
+  } catch(err) {
+    alert('AI生成に失敗しました: ' + err.message);
+    btn.textContent = '✨ AI生成'; btn.disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  オーバーレイ制御
+// ══════════════════════════════════════════════════════════
+
+function showOverlay(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('hidden', 'ov-exit');
+  el.classList.add('ov-enter');
+  document.body.style.overflow = 'hidden';
+}
+function hideOverlay(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('ov-enter');
+  el.classList.add('ov-exit');
+  setTimeout(() => { el.classList.add('hidden'); el.classList.remove('ov-exit'); }, 300);
+  document.body.style.overflow = '';
+}
+
+// ══════════════════════════════════════════════════════════
+//  タブ切り替え
+// ══════════════════════════════════════════════════════════
+
+function switchTab(name) {
+  ['menu','log','history'].forEach(v => {
+    const tab   = document.getElementById(`tab-${v}`);
+    const panel = document.getElementById(`view-${v}`);
+    const active = v === name;
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    tab.style.color = active ? '#000' : 'rgba(60,60,67,0.6)';
+    panel.classList.toggle('hidden', !active);
+  });
+  if (name === 'log')     renderLog();
+  if (name === 'menu')    renderMenu();
+  if (name === 'history') renderHistory();
+}
+
+function gotoDate(dateStr) {
+  currentDate = dateStr;
+  switchTab('log');
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+// ══════════════════════════════════════════════════════════
+//  初期化
+// ══════════════════════════════════════════════════════════
+
+function seedSampleData() {
+  const wos = getAllWorkouts();
+  if (Object.keys(wos).length) return; // already has data
+
+  // 過去1ヶ月分のサンプルデータを生成
+  const sampleDates = [
+    shiftDate(TODAY, -11), shiftDate(TODAY, -9), shiftDate(TODAY, -7),
+    shiftDate(TODAY, -5),  shiftDate(TODAY, -3), shiftDate(TODAY, -1),
+  ];
+  const samples = [
+    { type:'胸・肩・三頭筋', duration:65, exercises:[
+      { id:uid(), name:'ベンチプレス', muscle:'胸', isSeconds:false, sets:[{id:uid(),w:77.5,r:10},{id:uid(),w:77.5,r:10},{id:uid(),w:75,r:8},{id:uid(),w:75,r:8}] },
+      { id:uid(), name:'ショルダープレス', muscle:'肩', isSeconds:false, sets:[{id:uid(),w:20,r:12},{id:uid(),w:18,r:10},{id:uid(),w:18,r:10}] },
+      { id:uid(), name:'ライイング T.エクステンション', muscle:'三頭', isSeconds:false, sets:[{id:uid(),w:15,r:12},{id:uid(),w:15,r:12},{id:uid(),w:15,r:10}] },
+    ], memo:'調子良し' },
+    { type:'背中・二頭筋', duration:70, exercises:[
+      { id:uid(), name:'デッドリフト', muscle:'背中', isSeconds:false, sets:[{id:uid(),w:95,r:5},{id:uid(),w:95,r:5},{id:uid(),w:90,r:6},{id:uid(),w:90,r:6}] },
+      { id:uid(), name:'チンニング（懸垂）', muscle:'背中', isSeconds:false, sets:[{id:uid(),w:0,r:10},{id:uid(),w:0,r:8},{id:uid(),w:0,r:7}] },
+      { id:uid(), name:'バーベルカール', muscle:'二頭', isSeconds:false, sets:[{id:uid(),w:27.5,r:12},{id:uid(),w:27.5,r:10},{id:uid(),w:25,r:10}] },
+    ], memo:'' },
+    { type:'脚・腹筋', duration:80, exercises:[
+      { id:uid(), name:'スクワット', muscle:'脚', isSeconds:false, sets:[{id:uid(),w:87.5,r:10},{id:uid(),w:87.5,r:10},{id:uid(),w:80,r:10},{id:uid(),w:80,r:10}] },
+      { id:uid(), name:'レッグプレス', muscle:'脚', isSeconds:false, sets:[{id:uid(),w:145,r:15},{id:uid(),w:145,r:15},{id:uid(),w:145,r:12}] },
+      { id:uid(), name:'クランチ', muscle:'腹', isSeconds:false, sets:[{id:uid(),w:0,r:25},{id:uid(),w:0,r:25},{id:uid(),w:0,r:25}] },
+      { id:uid(), name:'プランク', muscle:'腹', isSeconds:true, sets:[{id:uid(),w:0,r:60},{id:uid(),w:0,r:60},{id:uid(),w:0,r:45}] },
+    ], memo:'スクワット87.5kgは自己ベスト！' },
+    { type:'胸・肩・三頭筋', duration:62, exercises:[
+      { id:uid(), name:'ベンチプレス', muscle:'胸', isSeconds:false, sets:[{id:uid(),w:80,r:10},{id:uid(),w:80,r:8},{id:uid(),w:77.5,r:8},{id:uid(),w:77.5,r:8}] },
+      { id:uid(), name:'ダンベルフライ', muscle:'胸', isSeconds:false, sets:[{id:uid(),w:18,r:12},{id:uid(),w:18,r:12},{id:uid(),w:18,r:10}] },
+      { id:uid(), name:'ショルダープレス', muscle:'肩', isSeconds:false, sets:[{id:uid(),w:22,r:10},{id:uid(),w:20,r:10},{id:uid(),w:20,r:10}] },
+    ], memo:'' },
+    { type:'背中・二頭筋', duration:72, exercises:[
+      { id:uid(), name:'デッドリフト', muscle:'背中', isSeconds:false, sets:[{id:uid(),w:100,r:5},{id:uid(),w:100,r:5},{id:uid(),w:90,r:6},{id:uid(),w:90,r:6}] },
+      { id:uid(), name:'ラットプルダウン', muscle:'背中', isSeconds:false, sets:[{id:uid(),w:60,r:12},{id:uid(),w:60,r:10},{id:uid(),w:55,r:10}] },
+      { id:uid(), name:'バーベルカール', muscle:'二頭', isSeconds:false, sets:[{id:uid(),w:30,r:12},{id:uid(),w:30,r:10},{id:uid(),w:27.5,r:10}] },
+    ], memo:'デッドリフト100kg達成！' },
+    { type:'脚・腹筋', duration:75, exercises:[
+      { id:uid(), name:'スクワット', muscle:'脚', isSeconds:false, sets:[{id:uid(),w:90,r:10},{id:uid(),w:90,r:10},{id:uid(),w:80,r:10},{id:uid(),w:80,r:10}] },
+      { id:uid(), name:'レッグカール', muscle:'脚', isSeconds:false, sets:[{id:uid(),w:40,r:12},{id:uid(),w:40,r:12},{id:uid(),w:37.5,r:12}] },
+      { id:uid(), name:'クランチ', muscle:'腹', isSeconds:false, sets:[{id:uid(),w:0,r:25},{id:uid(),w:0,r:25},{id:uid(),w:0,r:20}] },
+    ], memo:'' },
+  ];
+  sampleDates.forEach((ds, i) => {
+    setWorkout(ds, { ...samples[i % samples.length], updatedAt: new Date().toISOString() });
+  });
+}
+
+function init() {
+  seedSampleData();
+
+  // Tab events
+  document.getElementById('tab-menu').addEventListener('click',    () => switchTab('menu'));
+  document.getElementById('tab-log').addEventListener('click',     () => switchTab('log'));
+  document.getElementById('tab-history').addEventListener('click', () => switchTab('history'));
+
+  // Day navigation
+  document.getElementById('prev-day').addEventListener('click', () => {
+    const d = shiftDate(currentDate, -1);
+    if (d >= MIN_DATE) { currentDate = d; renderLog(); }
+  });
+  document.getElementById('next-day').addEventListener('click', () => {
+    const d = shiftDate(currentDate, 1);
+    if (d <= TODAY) { currentDate = d; renderLog(); }
+  });
+
+  // Escape key
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    ['editor-ov','picker-ov','ex-ov','settings-ov'].forEach(id => {
+      if (!document.getElementById(id).classList.contains('hidden')) hideOverlay(id);
+    });
+  });
+
+  // Initial render
+  switchTab('log');
+}
+
+init();
+</script>
+</body>
+</html>

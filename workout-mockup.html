@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="ja" class="text-[112.5%] antialiased [-webkit-text-size-adjust:100%]">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f2f2f7" />
+  <title>筋トレ記録</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system','BlinkMacSystemFont','"SF Pro Text"','"SF Pro Display"','"Hiragino Sans"','"Hiragino Kaku Gothic ProN"','"Noto Sans JP"','sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    #view-switch-tabs [aria-selected="true"] {
+      color: #000;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    }
+    .view-panel.hidden { display: none; }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeSlideIn 0.18s ease both; }
+
+    .day-nav-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 2.25rem; height: 2.25rem; border-radius: 50%;
+      background: #fff; border: none; cursor: pointer;
+      font-size: 1.4rem; line-height: 1; color: rgba(60,60,67,0.6);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.09);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .day-nav-btn:disabled { opacity: 0.3; cursor: default; }
+    .day-nav-btn:not(:disabled):active { background: #f0f0f5; }
+
+    .tap-row { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .tap-row:active { background: rgba(60,60,67,0.05); }
+
+    .cal-day-btn { cursor: pointer; -webkit-tap-highlight-color: transparent; border-radius: 8px; }
+    .cal-day-btn:active { opacity: 0.75; }
+
+    /* ── 種目別詳細オーバーレイ ── */
+    #ex-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    #ex-overlay.hidden { display: none; }
+
+    @keyframes backdropIn  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes sheetSlideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    @keyframes backdropOut { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes sheetSlideDown {
+      from { transform: translateY(0); }
+      to   { transform: translateY(100%); }
+    }
+
+    #ex-backdrop { animation: backdropIn  0.25s ease both; }
+    #ex-sheet    { animation: sheetSlideUp 0.32s cubic-bezier(0.32,0.72,0,1) both; }
+    #ex-overlay.closing #ex-backdrop { animation: backdropOut   0.22s ease both; }
+    #ex-overlay.closing #ex-sheet    { animation: sheetSlideDown 0.28s cubic-bezier(0.32,0.72,0,1) both; }
+
+    .ex-name-btn {
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      border-radius: 6px;
+    }
+    .ex-name-btn:active { background: rgba(60,60,67,0.06); }
+
+    /* スクロールバー非表示 */
+    #ex-body::-webkit-scrollbar { display: none; }
+    #ex-body { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* 重量推移チャート */
+    svg.prog-chart polyline {
+      fill: none; stroke: #007aff; stroke-width: 2.5;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+    svg.prog-chart .pb-line {
+      stroke: #ff2d55; stroke-width: 1.5; stroke-dasharray: 5 3;
+    }
+    svg.prog-chart .axis-base {
+      stroke: rgba(60,60,67,0.12); stroke-width: 1;
+    }
+  </style>
+</head>
+<body class="min-h-dvh bg-[#f2f2f7] font-sans text-base leading-snug tracking-tight text-black">
+
+<!-- ── メインコンテンツ ── -->
+<div class="mx-auto max-w-[375px] pb-[max(2rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))]">
+
+  <header class="mb-4 flex flex-col gap-3">
+    <div>
+      <h1 class="mb-0.5 text-[1.65rem] font-bold leading-tight tracking-tight">筋トレ記録</h1>
+      <p class="text-[1rem] font-semibold" style="color:rgba(60,60,67,0.6)">トレーニングログ</p>
+    </div>
+    <div id="view-switch-tabs" class="flex w-full rounded-[10px] p-[3px]"
+         style="background:rgba(120,120,128,0.16)" role="tablist" aria-label="表示切り替え">
+      <button type="button" role="tab" id="tab-menu" aria-selected="false"
+        class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
+        style="color:rgba(60,60,67,0.6)">メニュー</button>
+      <button type="button" role="tab" id="tab-log" aria-selected="true"
+        class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
+        style="color:rgba(60,60,67,0.6)">記録</button>
+      <button type="button" role="tab" id="tab-history" aria-selected="false"
+        class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
+        style="color:rgba(60,60,67,0.6)">履歴</button>
+    </div>
+  </header>
+
+  <!-- 記録ビュー -->
+  <div id="view-log" class="view-panel" role="tabpanel">
+    <div class="flex items-center justify-between mb-3 px-0.5">
+      <button id="prev-day" class="day-nav-btn" aria-label="前の日">‹</button>
+      <div id="date-display" class="text-[0.97rem] font-bold tabular-nums"></div>
+      <button id="next-day" class="day-nav-btn" aria-label="次の日">›</button>
+    </div>
+    <div id="day-content"></div>
+  </div>
+
+  <!-- メニュービュー -->
+  <div id="view-menu" class="view-panel hidden" role="tabpanel">
+    <div id="menu-content"></div>
+  </div>
+
+  <!-- 履歴ビュー -->
+  <div id="view-history" class="view-panel hidden" role="tabpanel">
+    <div id="history-content"></div>
+  </div>
+
+</div>
+
+<!-- ── 種目別詳細オーバーレイ ── -->
+<div id="ex-overlay" class="hidden">
+  <div id="ex-backdrop" onclick="closeExDetail()"
+       style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
+  <div id="ex-sheet" class="mx-auto w-full max-w-[375px]"
+       style="position:relative;background:#f2f2f7;border-radius:20px 20px 0 0;max-height:88dvh;display:flex;flex-direction:column;">
+    <!-- ドラッグハンドル -->
+    <div style="display:flex;justify-content:center;padding:0.6rem 0 0.2rem;flex-shrink:0">
+      <div style="width:2.5rem;height:4px;border-radius:2px;background:rgba(60,60,67,0.22)"></div>
+    </div>
+    <!-- ヘッダー -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:0.5rem 1rem 0.75rem;flex-shrink:0">
+      <div>
+        <h2 id="ex-title" style="font-size:1.3rem;font-weight:700;line-height:1.2;margin-bottom:0.2rem"></h2>
+        <p id="ex-subtitle" style="font-size:0.88rem;font-weight:600;color:rgba(60,60,67,0.55)"></p>
+      </div>
+      <button onclick="closeExDetail()"
+              style="flex-shrink:0;margin-top:0.1rem;width:1.9rem;height:1.9rem;border-radius:50%;background:rgba(60,60,67,0.1);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.82rem;font-weight:700;color:rgba(60,60,67,0.65)">✕</button>
+    </div>
+    <!-- スクロール本体 -->
+    <div id="ex-body" style="overflow-y:auto;padding:0 1rem 2rem;flex:1;min-height:0"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  定数・データ
+// ══════════════════════════════════════════════════════════
+
+const TODAY    = '2026-05-01';
+const MIN_DATE = '2026-04-18';
+
+// ── コーチ情報 ──────────────────────────────────────────────
+const COACH = { name: '田中コーチ', emoji: '👨‍💼' };
+
+// ── 週間推奨メニュー ───────────────────────────────────────
+const WEEKLY_PLAN = {
+  weekStart: '2026-04-27',
+  weekEnd:   '2026-05-03',
+  sentDate:  '2026-04-27',
+  coachMessage: 'お疲れさまです！今週はベンチプレスとデッドリフトの重量維持を最優先に。特に木曜の胸トレはインクラインの質を意識してほしいです。土曜のスクワットは先週の反省を活かして膝の状態をみながら無理せず攻めてください。今週も一緒に頑張りましょう 💪',
+  days: {
+    '2026-04-27': {
+      type: '脚・腹筋',
+      targets: [
+        { name: 'スクワット',   sets: 4, reps: '10',    weight: '90 kg',  note: '先週87.5kgで成功。今週は90kgを目指して！' },
+        { name: 'レッグプレス', sets: 3, reps: '12-15', weight: '150 kg' },
+        { name: 'レッグカール', sets: 3, reps: '12',    weight: '37.5–40 kg' },
+        { name: 'クランチ',     sets: 3, reps: '25',    weight: '自重' },
+        { name: 'プランク',     sets: 3, reps: '60秒',  weight: '―',      isSeconds: true },
+      ],
+    },
+    '2026-04-29': {
+      type: '背中・二頭筋',
+      targets: [
+        { name: 'デッドリフト',     sets: 4, reps: '5',     weight: '100 kg', note: '先週95kg成功。今週100kgに挑戦！フォームを崩さないように。' },
+        { name: 'ラットプルダウン', sets: 3, reps: '10-12', weight: '60 kg' },
+        { name: 'シーテッドロウ',   sets: 3, reps: '10-12', weight: '55 kg' },
+        { name: 'バーベルカール',   sets: 3, reps: '10-12', weight: '27.5–30 kg' },
+        { name: 'ハンマーカール',   sets: 3, reps: '12',    weight: '14 kg' },
+      ],
+    },
+    '2026-05-01': {
+      type: '胸・肩・三頭筋',
+      targets: [
+        { name: 'ベンチプレス',                  sets: 4, reps: '8-10',  weight: '80 kg',  note: '前半2セットは10回キープ。後半は8回でOK。次回は85kgを視野に。' },
+        { name: 'インクライン D.プレス',         sets: 3, reps: '10-12', weight: '24 kg' },
+        { name: 'ダンベルフライ',                sets: 3, reps: '12',    weight: '18 kg' },
+        { name: 'ショルダープレス',              sets: 3, reps: '10-12', weight: '20 kg' },
+        { name: 'ライイング T.エクステンション', sets: 3, reps: '10-12', weight: '15 kg' },
+      ],
+    },
+    '2026-05-02': {
+      type: '脚・腹筋',
+      targets: [
+        { name: 'スクワット',   sets: 4, reps: '10',    weight: '90 kg',  note: '膝の状態を確認しながら。痛みがあれば87.5kgに落とす。' },
+        { name: 'レッグプレス', sets: 3, reps: '15',    weight: '155 kg', note: '先週150kgから少し上げてみましょう' },
+        { name: 'レッグカール', sets: 3, reps: '12',    weight: '40 kg' },
+        { name: 'クランチ',     sets: 3, reps: '25',    weight: '自重' },
+      ],
+    },
+  },
+  feedbacks: {
+    '2026-04-27': {
+      text: 'スクワット90kgを達成！先週から2.5kg増加、素晴らしいです。ただ4セット目でフォームが少し崩れていたので、次回は重量より正しいフォームを優先してください。プランクの時間も安定してきました。この調子で！',
+      rating: 4,
+      points: [
+        { type: 'positive', text: 'スクワット重量更新 🎉' },
+        { type: 'positive', text: 'プランク安定' },
+        { type: 'improve',  text: '後半セットのフォームを意識' },
+      ],
+      sentAt: '4/27 21:30',
+    },
+    '2026-04-29': {
+      text: 'デッドリフト100kg達成、本当に素晴らしい！フォームも終始安定していました。ラットプルダウン・シーテッドロウも目標通りのボリューム。バーベルカールは最後のセットで少し反動を使っていましたが、全体的には満足のいくトレーニングでした。来週は105kgに挑戦してみましょう！',
+      rating: 5,
+      points: [
+        { type: 'positive', text: 'デッドリフト重量更新 🏆' },
+        { type: 'positive', text: 'フォーム終始安定' },
+        { type: 'positive', text: '全種目目標達成' },
+        { type: 'improve',  text: 'カール最終セットは反動なしで' },
+      ],
+      sentAt: '4/29 22:05',
+    },
+    '2026-05-01': {
+      text: 'ベンチプレス80kgで前半2セット10回をキープ、よくやりました！後半は8回でしたが計画通りです。ショルダープレスは後半に少し落ちましたが全セット完遂できました。インクライン・フライも丁寧にこなせていましたね。次回のベンチは85kgでのトライを提案します。準備できていると思います！',
+      rating: 4,
+      points: [
+        { type: 'positive', text: 'ベンチプレス計画通り ✓' },
+        { type: 'positive', text: '全種目完遂' },
+        { type: 'improve',  text: '次回ベンチ85kgに挑戦' },
+      ],
+      sentAt: '5/1 21:15',
+      isNew: true,
+    },
+  },
+};
+
+const C = {
+  '胸・肩・三頭筋': { bg:'rgba(10,132,255,0.10)',  text:'#0a84ff', dot:'#0a84ff'  },
+  '背中・二頭筋':   { bg:'rgba(52,199,89,0.12)',   text:'#1a8c34', dot:'#34c759'  },
+  '脚・腹筋':       { bg:'rgba(255,149,0,0.12)',   text:'#c47700', dot:'#ff9500'  },
+  '肩・腕':         { bg:'rgba(175,82,222,0.12)',  text:'#8944ab', dot:'#af52de'  },
+  '全身':           { bg:'rgba(255,45,85,0.10)',   text:'#d0003e', dot:'#ff2d55'  },
+};
+
+// 筋肉部位 → 表示色
+const MC = {
+  '胸':   { bg:'rgba(10,132,255,0.10)',  text:'#0a84ff' },
+  '背中': { bg:'rgba(52,199,89,0.12)',   text:'#1a8c34' },
+  '脚':   { bg:'rgba(255,149,0,0.12)',   text:'#c47700' },
+  '腹':   { bg:'rgba(255,149,0,0.12)',   text:'#c47700' },
+  '肩':   { bg:'rgba(175,82,222,0.12)',  text:'#8944ab' },
+  '二頭': { bg:'rgba(255,45,85,0.10)',   text:'#d0003e' },
+  '三頭': { bg:'rgba(255,45,85,0.10)',   text:'#d0003e' },
+};
+const mcOf = m => MC[m] || { bg:'rgba(60,60,67,0.07)', text:'rgba(60,60,67,0.65)' };
+
+const WO = {
+  '2026-05-01': {
+    type:'胸・肩・三頭筋', duration:68,
+    exercises:[
+      { name:'ベンチプレス',                  muscle:'胸',   sets:[{w:80,r:10},{w:80,r:10},{w:75,r:8},{w:75,r:8}] },
+      { name:'インクライン D.プレス',         muscle:'胸',   sets:[{w:24,r:12},{w:24,r:10},{w:22,r:10}] },
+      { name:'ダンベルフライ',                muscle:'胸',   sets:[{w:18,r:12},{w:18,r:12},{w:18,r:10}] },
+      { name:'ショルダープレス',              muscle:'肩',   sets:[{w:20,r:12},{w:20,r:10},{w:18,r:10}] },
+      { name:'ライイング T.エクステンション', muscle:'三頭', sets:[{w:15,r:12},{w:15,r:12},{w:15,r:10}] },
+    ],
+    memo:'ベンチは調子良し。ショルダーが少し疲れ気味だったが最後まで追い込めた。',
+  },
+  '2026-04-29': {
+    type:'背中・二頭筋', duration:72,
+    exercises:[
+      { name:'デッドリフト',     muscle:'背中', sets:[{w:100,r:5},{w:100,r:5},{w:90,r:6},{w:90,r:6}] },
+      { name:'ラットプルダウン', muscle:'背中', sets:[{w:60,r:12},{w:60,r:10},{w:55,r:10}] },
+      { name:'シーテッドロウ',   muscle:'背中', sets:[{w:55,r:12},{w:55,r:10},{w:50,r:10}] },
+      { name:'バーベルカール',   muscle:'二頭', sets:[{w:30,r:12},{w:30,r:10},{w:27.5,r:10}] },
+      { name:'ハンマーカール',   muscle:'二頭', sets:[{w:14,r:12},{w:14,r:12},{w:14,r:10}] },
+    ],
+    memo:'デッドは先週より 5 kg 重量アップ。フォームを意識してゆっくり下ろした。',
+  },
+  '2026-04-27': {
+    type:'脚・腹筋', duration:75,
+    exercises:[
+      { name:'スクワット',   muscle:'脚', sets:[{w:90,r:10},{w:90,r:10},{w:80,r:10},{w:80,r:10}] },
+      { name:'レッグプレス', muscle:'脚', sets:[{w:150,r:15},{w:150,r:12},{w:150,r:12}] },
+      { name:'レッグカール', muscle:'脚', sets:[{w:40,r:12},{w:40,r:12},{w:37.5,r:12}] },
+      { name:'クランチ',     muscle:'腹', sets:[{w:0,r:25},{w:0,r:25},{w:0,r:20}] },
+      { name:'プランク',     muscle:'腹', sets:[{w:0,r:60},{w:0,r:60},{w:0,r:45}], isSeconds:true },
+    ],
+    memo:'スクワットで膝が少し痛かったので、重量下げて回数で攻めた。',
+  },
+  '2026-04-26': {
+    type:'胸・肩・三頭筋', duration:62,
+    exercises:[
+      { name:'ベンチプレス',          muscle:'胸', sets:[{w:80,r:10},{w:80,r:8},{w:77.5,r:8},{w:77.5,r:8}] },
+      { name:'ケーブルクロスオーバー', muscle:'胸', sets:[{w:25,r:15},{w:25,r:12},{w:22.5,r:12}] },
+      { name:'ショルダープレス',      muscle:'肩', sets:[{w:22,r:10},{w:20,r:10},{w:20,r:10}] },
+      { name:'サイドレイズ',          muscle:'肩', sets:[{w:10,r:15},{w:10,r:12},{w:10,r:12}] },
+    ],
+    memo:'',
+  },
+  '2026-04-24': {
+    type:'背中・二頭筋', duration:70,
+    exercises:[
+      { name:'デッドリフト',       muscle:'背中', sets:[{w:95,r:5},{w:95,r:5},{w:90,r:6},{w:90,r:6}] },
+      { name:'チンニング（懸垂）', muscle:'背中', sets:[{w:0,r:10},{w:0,r:8},{w:0,r:7}] },
+      { name:'ダンベルロウ',       muscle:'背中', sets:[{w:30,r:12},{w:30,r:12},{w:30,r:10}] },
+      { name:'バーベルカール',     muscle:'二頭', sets:[{w:27.5,r:12},{w:27.5,r:10},{w:25,r:10}] },
+    ],
+    memo:'チンニングは懸垂。自重でだいぶ上がるようになってきた。',
+  },
+  '2026-04-22': {
+    type:'脚・腹筋', duration:80,
+    exercises:[
+      { name:'スクワット',             muscle:'脚', sets:[{w:87.5,r:10},{w:87.5,r:10},{w:80,r:10},{w:80,r:10}] },
+      { name:'レッグプレス',           muscle:'脚', sets:[{w:145,r:15},{w:145,r:15},{w:145,r:12}] },
+      { name:'レッグエクステンション', muscle:'脚', sets:[{w:35,r:15},{w:35,r:12},{w:35,r:12}] },
+      { name:'クランチ',               muscle:'腹', sets:[{w:0,r:25},{w:0,r:25},{w:0,r:25}] },
+    ],
+    memo:'スクワット 87.5 kg は自己ベスト更新！',
+  },
+  '2026-04-20': {
+    type:'胸・肩・三頭筋', duration:65,
+    exercises:[
+      { name:'ベンチプレス',                muscle:'胸',   sets:[{w:77.5,r:10},{w:77.5,r:10},{w:75,r:10},{w:75,r:8}] },
+      { name:'インクライン D.プレス',       muscle:'胸',   sets:[{w:22,r:12},{w:22,r:12},{w:22,r:10}] },
+      { name:'ショルダープレス',            muscle:'肩',   sets:[{w:20,r:12},{w:18,r:10},{w:18,r:10}] },
+      { name:'トライセプスプッシュダウン',  muscle:'三頭', sets:[{w:25,r:15},{w:25,r:12},{w:25,r:12}] },
+    ],
+    memo:'',
+  },
+};
+
+// ══════════════════════════════════════════════════════════
+//  ユーティリティ
+// ══════════════════════════════════════════════════════════
+
+let currentDate = TODAY;
+
+function shiftDate(d, n) {
+  const dt = new Date(d + 'T00:00:00');
+  dt.setDate(dt.getDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
+function fmtDate(d) {
+  const dt = new Date(d + 'T00:00:00');
+  const dows = ['日','月','火','水','木','金','土'];
+  const m = dt.getMonth()+1, day = dt.getDate(), dow = dows[dt.getDay()];
+  return `${m}月${day}日（${dow}）${d === TODAY ? '　今日' : ''}`;
+}
+function fmtShort(d) {
+  const dt = new Date(d + 'T00:00:00');
+  return `${dt.getMonth()+1}/${dt.getDate()}`;
+}
+function fmtRelDate(d) {
+  const diff = Math.round((new Date(TODAY) - new Date(d)) / 86400000);
+  if (diff === 0) return '今日';
+  if (diff === 1) return '昨日';
+  if (diff < 7)  return `${diff}日前`;
+  if (diff < 14) return '1週間前';
+  return `${Math.round(diff/7)}週間前`;
+}
+
+function calcVol(sets, isSec) {
+  if (isSec) return null;
+  return sets.reduce((s,{w,r}) => s + w*r, 0);
+}
+function totalVol(wo)  { return wo.exercises.reduce((s,ex) => s + (calcVol(ex.sets, ex.isSeconds)||0), 0); }
+function totalSets(wo) { return wo.exercises.reduce((s,ex) => s + ex.sets.length, 0); }
+function maxWeight(sets) { return Math.max(...sets.map(s => s.w)); }
+
+function calcStreak() {
+  let streak = 0, d = TODAY;
+  while (d >= MIN_DATE) {
+    if (WO[d]) streak++; else break;
+    d = shiftDate(d, -1);
+  }
+  return streak;
+}
+
+// 種目名 → 全セッション（古い順）
+function getExSessions(name) {
+  return Object.entries(WO)
+    .filter(([,wo]) => wo.exercises.some(ex => ex.name === name))
+    .sort(([a],[b]) => a.localeCompare(b))
+    .map(([date, wo]) => {
+      const ex = wo.exercises.find(e => e.name === name);
+      const mw = ex.isSeconds ? null : maxWeight(ex.sets.filter(s => s.w > 0));
+      return { date, ex, maxW: (mw && mw > 0) ? mw : null, vol: calcVol(ex.sets, ex.isSeconds) };
+    });
+}
+
+// 全種目を筋肉部位別に集約
+function getAllExByMuscle() {
+  const map = new Map();
+  Object.entries(WO).sort(([a],[b]) => a.localeCompare(b)).forEach(([date,wo]) => {
+    wo.exercises.forEach(ex => {
+      if (!map.has(ex.name)) map.set(ex.name, { muscle: ex.muscle, isSeconds: ex.isSeconds, sessions:[] });
+      map.get(ex.name).sessions.push({ date, sets: ex.sets });
+    });
+  });
+  const grouped = {};
+  map.forEach((v, name) => {
+    if (!grouped[v.muscle]) grouped[v.muscle] = [];
+    const sessions = v.sessions;
+    const last = sessions[sessions.length - 1];
+    const bestW = v.isSeconds ? null
+      : Math.max(...sessions.flatMap(s => s.sets.map(x => x.w)).filter(w => w > 0), 0) || null;
+    grouped[v.muscle].push({ name, muscle: v.muscle, isSeconds: v.isSeconds,
+      sessionCount: sessions.length, bestW, lastDate: last.date });
+  });
+  return grouped;
+}
+
+// ══════════════════════════════════════════════════════════
+//  記録ビュー
+// ══════════════════════════════════════════════════════════
+
+function renderLog() {
+  document.getElementById('date-display').textContent = fmtDate(currentDate);
+  document.getElementById('prev-day').disabled = currentDate <= MIN_DATE;
+  document.getElementById('next-day').disabled = currentDate >= TODAY;
+  const wo = WO[currentDate];
+  const el = document.getElementById('day-content');
+  el.innerHTML = wo ? buildWorkout(wo) : buildRestDay();
+  el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in');
+}
+
+function buildWorkout(wo) {
+  const c = C[wo.type] || C['全身'];
+  const vol = totalVol(wo), sets = totalSets(wo);
+  const volStr = vol >= 1000 ? (vol/1000).toFixed(1)+' t' : vol.toLocaleString()+' kg';
+  const exHtml = wo.exercises.map((ex,i) => buildExercise(ex,i,wo.exercises.length)).join('');
+  return `
+<div class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="flex items-center justify-between px-4 pt-4 pb-3">
+    <span class="inline-flex items-center rounded-full px-3 py-1 text-[0.82rem] font-bold"
+          style="background:${c.bg};color:${c.text}">${wo.type}</span>
+    <span class="text-[0.88rem] font-medium" style="color:rgba(60,60,67,0.55)">⏱ ${wo.duration} 分</span>
+  </div>
+  <div class="grid grid-cols-3" style="border-top:1px solid rgba(60,60,67,0.1)">
+    <div class="flex flex-col items-center py-3">
+      <span class="text-[1.5rem] font-bold tabular-nums" style="color:#007aff">${wo.exercises.length}</span>
+      <span class="text-[0.75rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">種目</span>
+    </div>
+    <div class="flex flex-col items-center py-3"
+         style="border-left:1px solid rgba(60,60,67,0.1);border-right:1px solid rgba(60,60,67,0.1)">
+      <span class="text-[1.5rem] font-bold tabular-nums" style="color:#007aff">${sets}</span>
+      <span class="text-[0.75rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">総セット</span>
+    </div>
+    <div class="flex flex-col items-center py-3">
+      <span class="text-[1.4rem] font-bold tabular-nums" style="color:#007aff">${volStr}</span>
+      <span class="text-[0.75rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">総ボリューム</span>
+    </div>
+  </div>
+</div>
+
+<section class="mb-3">
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide"
+       style="color:rgba(60,60,67,0.5)">種目詳細 <span style="font-size:0.7rem;font-weight:500">— 種目名をタップで履歴確認</span></div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+    ${exHtml}
+  </div>
+</section>
+
+${wo.memo ? `
+<section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="px-4 py-3">
+    <div class="text-[0.78rem] font-semibold uppercase tracking-wide mb-2" style="color:rgba(60,60,67,0.5)">メモ</div>
+    <p class="text-[0.95rem] leading-relaxed">${wo.memo}</p>
+  </div>
+</section>` : ''}`;
+}
+
+function buildExercise(ex, idx, total) {
+  const vol    = calcVol(ex.sets, ex.isSeconds);
+  const topBdr = idx > 0 ? 'border-top:1px solid rgba(60,60,67,0.1)' : '';
+  const mc     = mcOf(ex.muscle);
+  const sessions = getExSessions(ex.name);
+  const sessionCount = sessions.length;
+
+  const rowsHtml = ex.sets.map((s, si) => {
+    const wLabel = s.w === 0 ? (ex.isSeconds ? '―' : '自重') : `${s.w} kg`;
+    const rLabel = ex.isSeconds ? `${s.r} 秒` : `${s.r} 回`;
+    const bdr = si < ex.sets.length-1 ? 'border-bottom:1px solid rgba(60,60,67,0.06)' : '';
+    return `
+<div style="display:grid;grid-template-columns:2rem 1fr auto;align-items:center;padding:0.46rem 1rem;${bdr}">
+  <span style="font-size:0.78rem;font-weight:700;color:rgba(60,60,67,0.38);font-variant-numeric:tabular-nums">${si+1}</span>
+  <span style="font-size:0.92rem;font-weight:600;font-variant-numeric:tabular-nums">${wLabel}</span>
+  <span style="font-size:0.85rem;font-weight:500;color:rgba(60,60,67,0.58);font-variant-numeric:tabular-nums">× ${rLabel}</span>
+</div>`;
+  }).join('');
+
+  return `
+<div style="${topBdr}">
+  <div class="ex-name-btn" onclick="openExDetail('${ex.name.replace(/'/g,"\\'")}');"
+       style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem 0.35rem;margin:0 -0.25rem;border-radius:6px">
+    <div style="display:flex;align-items:center;gap:0.45rem;min-width:0;flex:1">
+      <span style="font-size:0.97rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ex.name}</span>
+      <span style="flex-shrink:0;border-radius:999px;padding:0.1rem 0.45rem;font-size:0.72rem;font-weight:600;background:${mc.bg};color:${mc.text}">${ex.muscle}</span>
+      <span style="flex-shrink:0;font-size:0.72rem;color:rgba(60,60,67,0.4)">${sessionCount}回実施</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.35rem;flex-shrink:0;margin-left:0.5rem">
+      ${vol ? `<span style="font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.38)">${vol.toLocaleString()} kg</span>` : ''}
+      <span style="font-size:0.95rem;color:rgba(60,60,67,0.28)">›</span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:2rem 1fr auto;padding:0.26rem 1rem;background:rgba(60,60,67,0.04)">
+    <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">SET</span>
+    <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">重量</span>
+    <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">回数</span>
+  </div>
+  ${rowsHtml}
+</div>`;
+}
+
+function buildRestDay() {
+  return `
+<div class="flex flex-col items-center justify-center rounded-[14px] bg-white py-14 mb-3"
+     style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div style="font-size:3rem;margin-bottom:0.75rem">🛌</div>
+  <div style="font-size:1.05rem;font-weight:700;margin-bottom:0.25rem">休息日</div>
+  <div style="font-size:0.88rem;color:rgba(60,60,67,0.55)">この日の記録はありません</div>
+</div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  履歴ビュー
+// ══════════════════════════════════════════════════════════
+
+function renderHistory() {
+  const streak = calcStreak();
+  document.getElementById('history-content').innerHTML =
+    buildStreakBanner(streak) +
+    buildCalendar(2026, 4) +
+    buildCalendar(2026, 5) +
+    buildExerciseListSection() +
+    buildHistoryList();
+}
+
+function buildStreakBanner(streak) {
+  const totalDays = Object.keys(WO).length;
+  const totalMins = Object.values(WO).reduce((s,w) => s+w.duration, 0);
+  return `
+<div class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="grid grid-cols-3">
+    <div class="flex flex-col items-center py-4" style="border-right:1px solid rgba(60,60,67,0.1)">
+      <span class="text-[1.85rem] font-bold tabular-nums leading-none" style="color:#007aff">${streak}</span>
+      <span class="text-[0.75rem] font-semibold mt-1" style="color:rgba(60,60,67,0.55)">連続日数 🔥</span>
+    </div>
+    <div class="flex flex-col items-center py-4" style="border-right:1px solid rgba(60,60,67,0.1)">
+      <span class="text-[1.85rem] font-bold tabular-nums leading-none" style="color:#34c759">${totalDays}</span>
+      <span class="text-[0.75rem] font-semibold mt-1" style="color:rgba(60,60,67,0.55)">通算回数</span>
+    </div>
+    <div class="flex flex-col items-center py-4">
+      <span class="text-[1.85rem] font-bold tabular-nums leading-none" style="color:#ff9500">${Math.round(totalMins/60*10)/10}</span>
+      <span class="text-[0.75rem] font-semibold mt-1" style="color:rgba(60,60,67,0.55)">通算時間（h）</span>
+    </div>
+  </div>
+</div>`;
+}
+
+function buildCalendar(year, month) {
+  const firstDow    = (new Date(year, month-1, 1).getDay()+6) % 7;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const cells = [...Array(firstDow).fill(null), ...Array.from({length:daysInMonth},(_,i)=>i+1)];
+  while (cells.length % 7) cells.push(null);
+
+  const hdrs = ['月','火','水','木','金','土','日'].map(h =>
+    `<div style="text-align:center;font-size:0.72rem;font-weight:600;color:rgba(60,60,67,0.42);padding:0.3rem 0">${h}</div>`
+  ).join('');
+
+  const cellHtml = cells.map(d => {
+    if (!d) return `<div></div>`;
+    const ds  = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const wo  = WO[ds];
+    const isToday  = ds === TODAY;
+    const isFuture = ds > TODAY;
+    const col = wo ? (C[wo.type] || C['全身']) : null;
+
+    let wrapStyle = 'display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;padding:0.32rem 0;gap:3px;';
+    let numStyle  = 'font-size:0.88rem;line-height:1;';
+    if (isToday)       { wrapStyle += 'background:#007aff;'; numStyle += 'font-weight:700;color:#fff;'; }
+    else if (isFuture) { numStyle += 'font-weight:400;color:rgba(60,60,67,0.22);'; }
+    else if (wo)       { numStyle += 'font-weight:700;color:#000;'; }
+    else               { numStyle += 'font-weight:400;color:rgba(60,60,67,0.38);'; }
+
+    const dot = col
+      ? `<div style="width:5px;height:5px;border-radius:50%;background:${isToday ? 'rgba(255,255,255,0.85)' : col.dot}"></div>`
+      : '';
+    const clickable = wo || isToday;
+    return `
+<div class="${clickable?'cal-day-btn':''}" style="${wrapStyle}"
+     ${clickable ? `onclick="gotoDate('${ds}')" role="button" tabindex="0"` : ''}>
+  <span style="${numStyle}">${d}</span>${dot}
+</div>`;
+  }).join('');
+
+  const woCount = cells.filter(d => {
+    if (!d) return false;
+    const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    return !!WO[ds] && ds <= TODAY;
+  }).length;
+
+  return `
+<section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="px-4 pt-4 pb-3">
+    <div class="flex items-baseline justify-between mb-3">
+      <span style="font-size:1rem;font-weight:700">${year}年${month}月</span>
+      <span style="font-size:0.82rem;font-weight:600;color:rgba(60,60,67,0.55)">${woCount} 回 トレーニング</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+      ${hdrs}
+      ${cellHtml}
+    </div>
+  </div>
+</section>`;
+}
+
+// ── 種目一覧セクション ──────────────────────────────────────
+
+function buildExerciseListSection() {
+  const grouped = getAllExByMuscle();
+  const muscleOrder = ['胸','肩','三頭','背中','二頭','脚','腹'];
+  const sortedMuscles = Object.keys(grouped).sort((a,b) => {
+    const ia = muscleOrder.indexOf(a), ib = muscleOrder.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+
+  const groupHtml = sortedMuscles.map(muscle => {
+    const exercises = grouped[muscle];
+    const mc = mcOf(muscle);
+    const rows = exercises.map((ex, i) => {
+      const sep = i > 0 ? `<div style="height:1px;background:rgba(60,60,67,0.08);margin-left:0"></div>` : '';
+      const bestLabel = ex.isSeconds  ? `最大 ${Math.max(...Object.values(WO)
+        .flatMap(wo => wo.exercises.filter(e => e.name === ex.name).flatMap(e => e.sets.map(s => s.r))))} 秒`
+        : ex.bestW > 0 ? `最高 ${ex.bestW} kg` : '自重';
+      return `
+${sep}
+<div class="tap-row" onclick="openExDetail('${ex.name.replace(/'/g,"\\'")}');"
+     style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem">
+  <div style="min-width:0;flex:1">
+    <div style="font-size:0.95rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ex.name}</div>
+    <div style="font-size:0.78rem;color:rgba(60,60,67,0.5);margin-top:0.15rem">${ex.sessionCount}回実施　·　最終: ${fmtRelDate(ex.lastDate)}</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;margin-left:0.5rem">
+    <span style="font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.5)">${bestLabel}</span>
+    <span style="font-size:1rem;color:rgba(60,60,67,0.25)">›</span>
+  </div>
+</div>`;
+    }).join('');
+
+    return `
+<div class="mb-2">
+  <div class="px-1 mb-1.5 flex items-center gap-1.5">
+    <span style="display:inline-block;border-radius:999px;padding:0.12rem 0.55rem;font-size:0.75rem;font-weight:700;background:${mc.bg};color:${mc.text}">${muscle}</span>
+  </div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+    ${rows}
+  </div>
+</div>`;
+  }).join('');
+
+  return `
+<section class="mb-3">
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide"
+       style="color:rgba(60,60,67,0.5)">種目別履歴</div>
+  ${groupHtml}
+</section>`;
+}
+
+function buildHistoryList() {
+  const keys = Object.keys(WO).sort((a,b) => b.localeCompare(a));
+  const rows = keys.map((ds,i) => {
+    const wo  = WO[ds];
+    const col = C[wo.type] || C['全身'];
+    const dt  = new Date(ds + 'T00:00:00');
+    const dows = ['日','月','火','水','木','金','土'];
+    const label = ds === TODAY ? '今日'
+      : `${dt.getMonth()+1}月${dt.getDate()}日（${dows[dt.getDay()]}）`;
+    const sets = totalSets(wo);
+    const vol  = totalVol(wo);
+    const volStr = vol >= 1000 ? (vol/1000).toFixed(1)+' t' : vol.toLocaleString()+' kg';
+    const sep = i > 0 ? `<div style="height:1px;background:rgba(60,60,67,0.1);margin-left:3.75rem"></div>` : '';
+    return `
+${sep}
+<div class="tap-row" onclick="gotoDate('${ds}')"
+     style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem">
+  <div style="flex-shrink:0;width:2.5rem;height:2.5rem;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${col.bg}">
+    <div style="width:0.7rem;height:0.7rem;border-radius:50%;background:${col.dot}"></div>
+  </div>
+  <div style="flex:1;min-width:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+      <span style="font-size:0.95rem;font-weight:700">${label}</span>
+      <span style="font-size:0.8rem;font-weight:500;color:rgba(60,60,67,0.5);flex-shrink:0">⏱ ${wo.duration}分</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem;flex-wrap:wrap">
+      <span style="font-size:0.76rem;font-weight:600;border-radius:999px;padding:0.1rem 0.5rem;background:${col.bg};color:${col.text}">${wo.type}</span>
+      <span style="font-size:0.76rem;color:rgba(60,60,67,0.5)">${sets} セット</span>
+      <span style="font-size:0.76rem;color:rgba(60,60,67,0.4)">${volStr}</span>
+    </div>
+  </div>
+  <div style="flex-shrink:0;font-size:1.1rem;color:rgba(60,60,67,0.28)">›</div>
+</div>`;
+  }).join('');
+
+  return `
+<section class="mb-3">
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide"
+       style="color:rgba(60,60,67,0.5)">最近のトレーニング</div>
+  <div class="rounded-[14px] bg-white overflow-hidden"
+       style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">${rows}</div>
+</section>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  種目別詳細オーバーレイ
+// ══════════════════════════════════════════════════════════
+
+function openExDetail(name) {
+  const sessions = getExSessions(name);
+  if (!sessions.length) return;
+
+  const firstEx   = sessions[0].ex;
+  const mc        = mcOf(firstEx.muscle);
+  const isSec     = firstEx.isSeconds;
+  const allMaxW   = sessions.map(s => s.maxW).filter(Boolean);
+  const bestW     = allMaxW.length ? Math.max(...allMaxW) : null;
+  const totalSetsCount = sessions.reduce((s,ss) => s + ss.ex.sets.length, 0);
+  const totalVolAll    = sessions.reduce((s,ss) => s + (ss.vol||0), 0);
+
+  document.getElementById('ex-title').textContent = name;
+  document.getElementById('ex-subtitle').textContent =
+    `${firstEx.muscle}　·　${sessions.length} セッション`;
+
+  const body = document.getElementById('ex-body');
+
+  // KPI row
+  const kpi1 = `${sessions.length} 回`;
+  const kpi2 = bestW ? `${bestW} kg` : isSec
+    ? `${Math.max(...sessions.flatMap(s => s.ex.sets.map(x => x.r)))} 秒`
+    : '自重';
+  const kpi3 = totalVolAll > 0
+    ? (totalVolAll >= 1000 ? (totalVolAll/1000).toFixed(1)+' t' : totalVolAll.toLocaleString()+' kg')
+    : '―';
+
+  const kpiHtml = `
+<div class="rounded-[14px] bg-white overflow-hidden mb-3" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="grid grid-cols-3">
+    <div class="flex flex-col items-center py-3">
+      <span class="text-[1.4rem] font-bold tabular-nums" style="color:#007aff">${kpi1}</span>
+      <span class="text-[0.72rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">実施回数</span>
+    </div>
+    <div class="flex flex-col items-center py-3" style="border-left:1px solid rgba(60,60,67,0.1);border-right:1px solid rgba(60,60,67,0.1)">
+      <span class="text-[1.4rem] font-bold tabular-nums" style="color:#ff2d55">${kpi2}</span>
+      <span class="text-[0.72rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">${isSec?'最長時間':'最高重量'}</span>
+    </div>
+    <div class="flex flex-col items-center py-3">
+      <span class="text-[1.3rem] font-bold tabular-nums" style="color:#34c759">${kpi3}</span>
+      <span class="text-[0.72rem] font-semibold mt-0.5" style="color:rgba(60,60,67,0.55)">通算ボリューム</span>
+    </div>
+  </div>
+</div>`;
+
+  // チャート（重量あり・2セッション以上）
+  const chartSessions = sessions.filter(s => s.maxW !== null);
+  const chartHtml = (!isSec && chartSessions.length >= 2) ? `
+<section class="mb-3">
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide"
+       style="color:rgba(60,60,67,0.5)">最高重量の推移</div>
+  <div class="rounded-[14px] bg-white overflow-hidden px-3 pt-3 pb-2"
+       style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+    ${buildProgressChart(chartSessions)}
+    <div class="flex items-center gap-3 mt-2 px-1" style="font-size:0.7rem;color:rgba(60,60,67,0.5)">
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:20px;height:2.5px;border-radius:2px;background:#007aff"></span>使用重量</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;border-top:2px dashed #ff2d55"></span>自己ベスト</span>
+    </div>
+  </div>
+</section>` : '';
+
+  // セッション別リスト（新しい順）
+  const sessionListHtml = buildExSessionList(sessions);
+
+  body.innerHTML = kpiHtml + chartHtml + sessionListHtml;
+
+  const overlay = document.getElementById('ex-overlay');
+  overlay.classList.remove('hidden', 'closing');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeExDetail() {
+  const overlay = document.getElementById('ex-overlay');
+  overlay.classList.add('closing');
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('closing');
+    document.body.style.overflow = '';
+  }, 300);
+}
+
+// ── 重量推移 SVG チャート ─────────────────────────────────
+
+function buildProgressChart(sessions) {
+  const W = 320, H = 130;
+  const L = 42, R = 12, T = 18, B = 26;
+  const cW = W - L - R, cH = H - T - B;
+
+  const weights  = sessions.map(s => s.maxW);
+  const rawMax   = Math.max(...weights);
+  const rawMin   = Math.min(...weights);
+  const range    = rawMax - rawMin || rawMax * 0.1 || 10;
+  const yMin     = Math.max(0, rawMin - range * 0.5);
+  const yMax     = rawMax + range * 0.5;
+  const yRange   = yMax - yMin;
+
+  const xOf = i  => L + (sessions.length === 1 ? cW/2 : (i/(sessions.length-1)) * cW);
+  const yOf = w  => T + cH - ((w - yMin) / yRange) * cH;
+
+  const pts     = sessions.map((s,i) => ({ x: xOf(i), y: yOf(s.maxW), w: s.maxW, date: s.date }));
+  const polyline = pts.map(p => `${p.x},${p.y}`).join(' ');
+  const pbY      = yOf(rawMax);
+
+  // グリッド（min/max 水平線）
+  const gridHtml = `
+    <line class="axis-base" x1="${L}" y1="${T+cH}" x2="${W-R}" y2="${T+cH}" />
+    <line class="pb-line"   x1="${L}" y1="${pbY}"   x2="${W-R}" y2="${pbY}"  opacity="0.55" />`;
+
+  // Y ラベル
+  const yLabels = (() => {
+    const niceW = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
+    let out = `<text x="${L-5}" y="${yOf(rawMin)+4}" text-anchor="end" style="font-size:0.64rem;fill:rgba(60,60,67,0.42);font-weight:600">${niceW(rawMin)}</text>`;
+    if (rawMax !== rawMin)
+      out += `<text x="${L-5}" y="${yOf(rawMax)+4}" text-anchor="end" style="font-size:0.64rem;fill:#ff2d55;font-weight:700">${niceW(rawMax)}</text>`;
+    return out;
+  })();
+
+  // データ点・ラベル
+  const dotsHtml = pts.map((p, i) => {
+    const isPB   = p.w === rawMax;
+    const isLast = i === pts.length - 1;
+    const r      = isPB ? 5 : 4;
+    const fill   = isPB ? '#ff2d55' : '#007aff';
+    const showLabel = isPB || isLast || i === 0;
+    const anchor = i === 0 ? 'start' : i === pts.length-1 ? 'end' : 'middle';
+    const niceW  = Number.isInteger(p.w) ? String(p.w) : p.w.toFixed(1);
+    return `
+      <circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${fill}" />
+      ${showLabel ? `<text x="${p.x}" y="${p.y-8}" text-anchor="${anchor}" style="font-size:0.68rem;fill:${isPB?'#ff2d55':'#007aff'};font-weight:700">${niceW}</text>` : ''}`;
+  }).join('');
+
+  // X 日付ラベル
+  const dateLabels = pts.map((p, i) => {
+    const show = i === 0 || i === pts.length-1 || (pts.length >= 4 && i === Math.floor(pts.length/2));
+    const anchor = i === 0 ? 'start' : i === pts.length-1 ? 'end' : 'middle';
+    return show
+      ? `<text x="${p.x}" y="${H-3}" text-anchor="${anchor}" style="font-size:0.64rem;fill:rgba(60,60,67,0.42);font-weight:600">${fmtShort(p.date)}</text>`
+      : '';
+  }).join('');
+
+  return `<svg class="prog-chart" viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;overflow:visible" role="img" aria-label="重量推移チャート">
+  ${gridHtml}
+  <polyline points="${polyline}" />
+  ${dotsHtml}
+  ${dateLabels}
+  ${yLabels}
+</svg>`;
+}
+
+// ── セッション別リスト ────────────────────────────────────
+
+function buildExSessionList(sessions) {
+  const sorted = [...sessions].sort((a,b) => b.date.localeCompare(a.date));
+  const allMaxW = sessions.map(s => s.maxW).filter(Boolean);
+  const globalPB = allMaxW.length ? Math.max(...allMaxW) : null;
+
+  const rows = sorted.map((sess, i) => {
+    const ex  = sess.ex;
+    const dt  = new Date(sess.date + 'T00:00:00');
+    const dows = ['日','月','火','水','木','金','土'];
+    const dateLabel = `${dt.getMonth()+1}月${dt.getDate()}日（${dows[dt.getDay()]}）`;
+    const relLabel  = fmtRelDate(sess.date);
+    const sessMaxW  = sess.maxW;
+    const isPBsess  = globalPB !== null && sessMaxW === globalPB;
+
+    const setRows = ex.sets.map((s, si) => {
+      const isBestSet = !ex.isSeconds && s.w === sessMaxW && sessMaxW !== null;
+      const wLabel = s.w === 0 ? (ex.isSeconds ? '―' : '自重') : `${s.w} kg`;
+      const rLabel = ex.isSeconds ? `${s.r} 秒` : `${s.r} 回`;
+      return `
+<div style="display:grid;grid-template-columns:2rem 1fr auto auto;align-items:center;padding:0.42rem 1rem;${si < ex.sets.length-1 ? 'border-bottom:1px solid rgba(60,60,67,0.06)' : ''}">
+  <span style="font-size:0.76rem;font-weight:700;color:rgba(60,60,67,0.35);font-variant-numeric:tabular-nums">${si+1}</span>
+  <span style="font-size:0.9rem;font-weight:600;font-variant-numeric:tabular-nums;color:${isBestSet?'#007aff':'#000'}">${wLabel}</span>
+  <span style="font-size:0.82rem;font-weight:500;color:rgba(60,60,67,0.55);font-variant-numeric:tabular-nums;margin-right:0.4rem">× ${rLabel}</span>
+  ${isBestSet ? `<span style="font-size:0.68rem;font-weight:700;color:#007aff;background:rgba(10,132,255,0.1);border-radius:4px;padding:0.05rem 0.3rem">最高</span>` : '<span></span>'}
+</div>`;
+    }).join('');
+
+    const volStr = sess.vol
+      ? (sess.vol >= 1000 ? (sess.vol/1000).toFixed(1)+' t' : sess.vol.toLocaleString()+' kg')
+      : null;
+
+    const sep = i > 0 ? `<div style="height:6px;background:#f2f2f7"></div>` : '';
+
+    return `
+${sep}
+<div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1rem 0.3rem;background:rgba(60,60,67,0.025)">
+    <div style="display:flex;align-items:center;gap:0.5rem">
+      <span style="font-size:0.9rem;font-weight:700">${dateLabel}</span>
+      <span style="font-size:0.76rem;color:rgba(60,60,67,0.45)">${relLabel}</span>
+      ${isPBsess ? `<span style="font-size:0.68rem;font-weight:700;color:#ff2d55;background:rgba(255,45,85,0.1);border-radius:4px;padding:0.05rem 0.3rem">PB 🏆</span>` : ''}
+    </div>
+    ${volStr ? `<span style="font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.4)">${volStr}</span>` : ''}
+  </div>
+  <div style="display:grid;grid-template-columns:2rem 1fr auto auto;padding:0.24rem 1rem;background:rgba(60,60,67,0.04)">
+    <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">SET</span>
+    <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">重量</span>
+    <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35);margin-right:0.4rem">回数</span>
+    <span></span>
+  </div>
+  ${setRows}
+</div>`;
+  }).join('');
+
+  return `
+<section>
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide"
+       style="color:rgba(60,60,67,0.5)">セッション履歴</div>
+  <div class="rounded-[14px] bg-white overflow-hidden"
+       style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">${rows}</div>
+</section>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  メニュービュー
+// ══════════════════════════════════════════════════════════
+
+let selectedMenuDate = TODAY;
+
+function renderMenu() {
+  document.getElementById('menu-content').innerHTML =
+    buildCoachMessage() + buildWeekGrid() + buildDayMenuDetail(selectedMenuDate);
+}
+
+// ── コーチメッセージカード ──────────────────────────────────
+function buildCoachMessage() {
+  const d = new Date(WEEKLY_PLAN.sentDate + 'T00:00:00');
+  const sentLabel = `${d.getMonth()+1}/${d.getDate()} 送信`;
+  return `
+<div class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="px-4 pt-4 pb-3">
+    <div class="flex items-center gap-2 mb-3">
+      <div style="width:2.2rem;height:2.2rem;border-radius:50%;background:rgba(10,132,255,0.1);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${COACH.emoji}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.9rem;font-weight:700">${COACH.name}</div>
+        <div style="font-size:0.72rem;font-weight:500;color:rgba(60,60,67,0.5)">今週のメッセージ · ${sentLabel}</div>
+      </div>
+      <div style="font-size:0.72rem;font-weight:600;border-radius:999px;padding:0.15rem 0.55rem;background:rgba(10,132,255,0.1);color:#0a84ff;flex-shrink:0">
+        ${WEEKLY_PLAN.weekStart.slice(5).replace('-','/')} 〜 ${WEEKLY_PLAN.weekEnd.slice(5).replace('-','/')}
+      </div>
+    </div>
+    <p style="font-size:0.9rem;line-height:1.6;color:#000">${WEEKLY_PLAN.coachMessage}</p>
+  </div>
+</div>`;
+}
+
+// ── 週間メニューグリッド ────────────────────────────────────
+function buildWeekGrid() {
+  const start  = new Date(WEEKLY_PLAN.weekStart + 'T00:00:00');
+  const dows   = ['月','火','水','木','金','土','日'];
+  const days   = Array.from({length:7}, (_,i) => {
+    const dt = new Date(start); dt.setDate(dt.getDate() + i);
+    return dt.toISOString().slice(0,10);
+  });
+
+  const cols = days.map((ds, i) => {
+    const plan    = WEEKLY_PLAN.days[ds];
+    const done    = !!WO[ds];
+    const isToday = ds === TODAY;
+    const isFuture = ds > TODAY;
+    const isSel   = ds === selectedMenuDate && !!plan;
+    const col     = plan ? (C[plan.type] || C['全身']) : null;
+    const dayLabel = dows[i];
+
+    // 部位を2文字に省略
+    const typeShort = plan
+      ? plan.type.split('・')[0].slice(0,2)
+      : '';
+
+    let cellBg = 'transparent';
+    let labelColor = 'rgba(60,60,67,0.35)';
+    let badgeBg = 'transparent', badgeText = 'rgba(60,60,67,0.3)';
+    let border = '';
+
+    if (isSel) {
+      border = `box-shadow:inset 0 0 0 2px ${col.dot};border-radius:10px;`;
+    }
+
+    if (plan) {
+      badgeBg   = col.bg;
+      badgeText = col.text;
+      labelColor = '#000';
+    }
+
+    const statusIcon = done
+      ? `<span style="font-size:0.7rem;color:#34c759;font-weight:700">✓</span>`
+      : isToday && plan
+      ? `<span style="font-size:0.65rem;color:#007aff;font-weight:700">今日</span>`
+      : plan && isFuture
+      ? `<span style="font-size:0.7rem;color:rgba(60,60,67,0.3)">●</span>`
+      : `<span style="font-size:0.7rem;color:rgba(60,60,67,0.2)">―</span>`;
+
+    const clickable = !!plan;
+    return `
+<div ${clickable ? `onclick="selectMenuDay('${ds}')"` : ''}
+     style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:0.4rem 0.15rem;border-radius:10px;${border}cursor:${clickable?'pointer':'default'};-webkit-tap-highlight-color:transparent;">
+  <span style="font-size:0.72rem;font-weight:600;color:rgba(60,60,67,0.45)">${dayLabel}</span>
+  ${plan
+    ? `<span style="font-size:0.7rem;font-weight:700;border-radius:6px;padding:0.15rem 0.3rem;background:${badgeBg};color:${badgeText};line-height:1.2;text-align:center">${typeShort}</span>`
+    : `<span style="font-size:0.7rem;color:rgba(60,60,67,0.2)">休</span>`}
+  ${statusIcon}
+</div>`;
+  }).join('');
+
+  return `
+<section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div class="px-3 pt-3 pb-2">
+    <div class="flex items-center justify-between mb-2">
+      <span style="font-size:0.82rem;font-weight:700">週間プラン</span>
+      <span style="font-size:0.72rem;color:rgba(60,60,67,0.45)">日をタップで詳細表示</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${cols}</div>
+  </div>
+</section>`;
+}
+
+// ── 選択日の詳細 ─────────────────────────────────────────────
+function buildDayMenuDetail(ds) {
+  const plan = WEEKLY_PLAN.days[ds];
+  if (!plan) return '';
+
+  const dt     = new Date(ds + 'T00:00:00');
+  const dows   = ['日','月','火','水','木','金','土'];
+  const dateLabel = `${dt.getMonth()+1}月${dt.getDate()}日（${dows[dt.getDay()]}）${ds === TODAY ? '　今日' : ''}`;
+  const col    = C[plan.type] || C['全身'];
+  const wo     = WO[ds];
+  const done   = !!wo;
+  const isFuture = ds > TODAY;
+
+  const statusBadge = done
+    ? `<span style="font-size:0.75rem;font-weight:700;border-radius:999px;padding:0.15rem 0.6rem;background:rgba(52,199,89,0.12);color:#1a8c34">実施済 ✓</span>`
+    : isFuture
+    ? `<span style="font-size:0.75rem;font-weight:700;border-radius:999px;padding:0.15rem 0.6rem;background:rgba(60,60,67,0.07);color:rgba(60,60,67,0.5)">予定</span>`
+    : `<span style="font-size:0.75rem;font-weight:700;border-radius:999px;padding:0.15rem 0.6rem;background:rgba(255,149,0,0.12);color:#c47700">未実施</span>`;
+
+  // 種目別 目標 vs 実績
+  const exRows = plan.targets.map((t, i) => {
+    const actEx = wo ? wo.exercises.find(e => e.name === t.name) : null;
+    const border = i > 0 ? 'border-top:1px solid rgba(60,60,67,0.08)' : '';
+
+    // 実績セット列
+    let actualHtml = '';
+    if (actEx) {
+      const setTags = actEx.sets.map((s,si) => {
+        const wTxt = s.w === 0 ? (actEx.isSeconds ? '―' : '自重') : `${s.w}`;
+        const rTxt = actEx.isSeconds ? `${s.r}秒` : `${s.r}回`;
+        return `<span style="display:inline-block;font-size:0.75rem;font-weight:600;border-radius:5px;padding:0.1rem 0.35rem;background:rgba(10,132,255,0.07);color:#0a84ff;white-space:nowrap;margin:1px">${wTxt}×${rTxt}</span>`;
+      }).join('');
+      const achieved = actEx.sets.length >= t.sets;
+      actualHtml = `
+<div style="margin-top:0.4rem">
+  <div style="display:flex;align-items:center;gap:0.3rem;margin-bottom:0.25rem">
+    <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.4)">実績</span>
+    <span style="font-size:0.7rem;font-weight:700;color:${achieved?'#34c759':'#ff9500'}">${achieved?'✓ 目標達成':'△ 途中'}</span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:2px">${setTags}</div>
+</div>`;
+    }
+
+    const noteHtml = t.note
+      ? `<div style="margin-top:0.35rem;font-size:0.78rem;color:rgba(60,60,67,0.55);line-height:1.45;border-left:2px solid rgba(10,132,255,0.35);padding-left:0.4rem">${t.note}</div>`
+      : '';
+
+    return `
+<div style="padding:0.6rem 1rem;${border}">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.25rem">
+    <span style="font-size:0.93rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</span>
+    <span style="font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.5);flex-shrink:0;white-space:nowrap">${t.sets}セット × ${t.reps} @ ${t.weight}</span>
+  </div>
+  ${noteHtml}
+  ${actualHtml}
+</div>`;
+  }).join('');
+
+  const feedbackHtml = done ? buildMenuFeedback(ds) : '';
+
+  return `
+<section class="mb-3">
+  <div class="px-1 mb-2 text-[0.78rem] font-semibold uppercase tracking-wide"
+       style="color:rgba(60,60,67,0.5)">本日のメニュー</div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+    <!-- ヘッダー -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1rem 0.5rem">
+      <div>
+        <div style="font-size:0.88rem;font-weight:700;color:rgba(60,60,67,0.55);margin-bottom:0.2rem">${dateLabel}</div>
+        <span style="display:inline-block;border-radius:999px;padding:0.15rem 0.65rem;font-size:0.8rem;font-weight:700;background:${col.bg};color:${col.text}">${plan.type}</span>
+      </div>
+      ${statusBadge}
+    </div>
+    <!-- 目標 vs 実績 -->
+    <div style="border-top:1px solid rgba(60,60,67,0.1)">
+      ${exRows}
+    </div>
+  </div>
+</section>
+${feedbackHtml}`;
+}
+
+// ── フィードバックカード ────────────────────────────────────
+function buildMenuFeedback(ds) {
+  const fb = WEEKLY_PLAN.feedbacks[ds];
+  if (!fb) {
+    return `
+<section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem 1rem">
+    <div style="font-size:1.5rem;margin-bottom:0.5rem">⏳</div>
+    <div style="font-size:0.9rem;font-weight:700;margin-bottom:0.2rem">フィードバック待ち</div>
+    <div style="font-size:0.82rem;color:rgba(60,60,67,0.5)">コーチからの返信をお待ちください</div>
+  </div>
+</section>`;
+  }
+
+  const stars = Array.from({length:5}, (_,i) =>
+    `<span style="color:${i < fb.rating ? '#ff9500' : 'rgba(60,60,67,0.18)'}">★</span>`
+  ).join('');
+
+  const points = fb.points.map(p => {
+    const isPositive = p.type === 'positive';
+    return `
+<div style="display:flex;align-items:flex-start;gap:0.4rem;padding:0.3rem 0">
+  <span style="flex-shrink:0;font-size:0.78rem;font-weight:800;color:${isPositive?'#34c759':'#ff9500'};margin-top:0.05rem">${isPositive?'✓':'→'}</span>
+  <span style="font-size:0.85rem;font-weight:600;color:${isPositive?'#000':'rgba(60,60,67,0.75)'}">${p.text}</span>
+</div>`;
+  }).join('');
+
+  return `
+<section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+  <div style="padding:0.75rem 1rem 0.5rem">
+    <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.1rem">
+      <span style="font-size:0.78rem;font-weight:700;color:rgba(60,60,67,0.5);text-transform:uppercase;letter-spacing:.04em">コーチフィードバック</span>
+      ${fb.isNew ? `<span style="font-size:0.65rem;font-weight:800;border-radius:4px;padding:0.05rem 0.35rem;background:#ff3b30;color:#fff">NEW</span>` : ''}
+    </div>
+  </div>
+  <div style="border-top:1px solid rgba(60,60,67,0.08);padding:0.75rem 1rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.65rem">
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <div style="width:1.9rem;height:1.9rem;border-radius:50%;background:rgba(10,132,255,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem">${COACH.emoji}</div>
+        <div>
+          <div style="font-size:0.88rem;font-weight:700">${COACH.name}</div>
+          <div style="font-size:0.68rem;color:rgba(60,60,67,0.45)">${fb.sentAt} 送信</div>
+        </div>
+      </div>
+      <div style="font-size:1rem;letter-spacing:0.05em">${stars}</div>
+    </div>
+    <p style="font-size:0.88rem;line-height:1.65;color:#000;margin-bottom:0.65rem;padding:0.6rem 0.75rem;background:rgba(60,60,67,0.03);border-radius:8px">${fb.text}</p>
+    <div style="border-top:1px solid rgba(60,60,67,0.08);padding-top:0.5rem">${points}</div>
+  </div>
+</section>`;
+}
+
+function selectMenuDay(ds) {
+  selectedMenuDate = ds;
+  renderMenu();
+  // 詳細部分へスクロール
+  setTimeout(() => {
+    const el = document.querySelector('#menu-content section:nth-child(3)');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
+// ══════════════════════════════════════════════════════════
+//  インタラクション
+// ══════════════════════════════════════════════════════════
+
+function gotoDate(dateStr) {
+  currentDate = dateStr;
+  switchTab('log');
+  renderLog();
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+function switchTab(name) {
+  ['log','menu','history'].forEach(v => {
+    const tab   = document.getElementById(`tab-${v}`);
+    const panel = document.getElementById(`view-${v}`);
+    const active = v === name;
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    tab.style.color = active ? '#000' : 'rgba(60,60,67,0.6)';
+    panel.classList.toggle('hidden', !active);
+  });
+  if (name === 'history') renderHistory();
+  if (name === 'menu')    renderMenu();
+}
+
+document.getElementById('prev-day').addEventListener('click', () => {
+  const d = shiftDate(currentDate, -1);
+  if (d >= MIN_DATE) { currentDate = d; renderLog(); }
+});
+document.getElementById('next-day').addEventListener('click', () => {
+  const d = shiftDate(currentDate, 1);
+  if (d <= TODAY) { currentDate = d; renderLog(); }
+});
+document.getElementById('tab-log').addEventListener('click',     () => switchTab('log'));
+document.getElementById('tab-menu').addEventListener('click',    () => switchTab('menu'));
+document.getElementById('tab-history').addEventListener('click', () => switchTab('history'));
+
+// Escape キーでオーバーレイを閉じる
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeExDetail(); });
+
+renderLog();
+</script>
+</body>
+</html>
