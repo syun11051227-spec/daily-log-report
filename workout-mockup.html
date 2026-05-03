@@ -34,7 +34,7 @@
 
     .day-nav-btn {
       display: flex; align-items: center; justify-content: center;
-      width: 2.25rem; height: 2.25rem; border-radius: 50%;
+      width: 2.75rem; height: 2.75rem; border-radius: 50%;
       background: #fff; border: none; cursor: pointer;
       font-size: 1.4rem; line-height: 1; color: rgba(60,60,67,0.6);
       box-shadow: 0 1px 3px rgba(0,0,0,0.09);
@@ -129,6 +129,47 @@
     }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(-0.25rem); }
 
+    /* 種目追加シート */
+    #add-ex-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    #add-ex-overlay.hidden { display: none; }
+    #add-ex-backdrop { animation: backdropIn  0.25s ease both; }
+    #add-ex-sheet    { animation: sheetSlideUp 0.32s cubic-bezier(0.32,0.72,0,1) both; }
+    #add-ex-overlay.closing #add-ex-backdrop { animation: backdropOut   0.22s ease both; }
+    #add-ex-overlay.closing #add-ex-sheet    { animation: sheetSlideDown 0.28s cubic-bezier(0.32,0.72,0,1) both; }
+
+    #add-ex-body::-webkit-scrollbar { display: none; }
+    #add-ex-body { -ms-overflow-style: none; scrollbar-width: none; }
+
+    #ex-search:focus { outline: none; border-color: #007aff !important; }
+    #ex-search::placeholder { color: rgba(60,60,67,0.35); }
+    #custom-ex-name:focus { outline: none; border-color: #007aff !important; }
+
+    .add-ex-row { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .add-ex-row:active { background: rgba(60,60,67,0.05); }
+
+    /* セット入力欄 */
+    .ex-input {
+      padding: 0.35rem 0.4rem;
+      border-radius: 8px;
+      border: 1.5px solid rgba(60,60,67,0.13);
+      background: #f9f9fb;
+      font-size: 0.92rem;
+      font-weight: 600;
+      text-align: center;
+      -webkit-appearance: none;
+      font-variant-numeric: tabular-nums;
+    }
+    .ex-input:focus {
+      outline: none;
+      border-color: #007aff;
+      background: #fff;
+    }
+    input[type=number].ex-input::-webkit-inner-spin-button,
+    input[type=number].ex-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
     /* 重量推移チャート */
     svg.prog-chart polyline {
       fill: none; stroke: #007aff; stroke-width: 2.5;
@@ -139,6 +180,50 @@
     }
     svg.prog-chart .axis-base {
       stroke: rgba(60,60,67,0.12); stroke-width: 1;
+    }
+
+    /* ── RPEピッカー ── */
+    #rpe-overlay {
+      position: fixed; inset: 0; z-index: 150;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    #rpe-overlay.hidden { display: none; }
+    #rpe-backdrop { animation: backdropIn  0.2s ease both; }
+    #rpe-sheet    { animation: sheetSlideUp 0.28s cubic-bezier(0.32,0.72,0,1) both; }
+    #rpe-overlay.closing #rpe-backdrop { animation: backdropOut   0.18s ease both; }
+    #rpe-overlay.closing #rpe-sheet    { animation: sheetSlideDown 0.24s cubic-bezier(0.32,0.72,0,1) both; }
+
+    .rpe-btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border-radius: 12px; border: 2.5px solid transparent; cursor: pointer;
+      padding: 0.55rem 0.25rem; gap: 2px;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s ease;
+    }
+    .rpe-btn:active { transform: scale(0.90); }
+    .rpe-btn.rpe-selected { border-color: currentColor !important; }
+
+    /* 閉じるボタン（最小タッチターゲット 44px） */
+    .close-btn {
+      min-width: 2.75rem; min-height: 2.75rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* 削除ボタン（最小タッチターゲット 44px） */
+    .delete-btn {
+      min-width: 2.75rem; min-height: 2.75rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fade-in { animation: none; }
+      #ex-backdrop, #ex-sheet,
+      #add-ex-backdrop, #add-ex-sheet,
+      #rpe-backdrop, #rpe-sheet { animation: none !important; }
+      .complete-btn.done { animation: none; }
+      #toast { transition: none; }
     }
   </style>
 </head>
@@ -158,22 +243,22 @@
     <div id="view-switch-tabs" class="flex w-full rounded-[10px] p-[3px]"
          style="background:rgba(120,120,128,0.16)" role="tablist" aria-label="表示切り替え">
       <div class="tab-wrap">
-        <button type="button" role="tab" id="tab-menu" aria-selected="false"
+        <button type="button" role="tab" id="tab-menu" aria-selected="false" aria-controls="view-menu"
           class="w-full min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
           style="color:rgba(60,60,67,0.6)">メニュー</button>
         <span id="menu-badge" class="tab-badge">●</span>
       </div>
-      <button type="button" role="tab" id="tab-log" aria-selected="true"
+      <button type="button" role="tab" id="tab-log" aria-selected="true" aria-controls="view-log"
         class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
         style="color:rgba(60,60,67,0.6)">記録</button>
-      <button type="button" role="tab" id="tab-history" aria-selected="false"
+      <button type="button" role="tab" id="tab-history" aria-selected="false" aria-controls="view-history"
         class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
         style="color:rgba(60,60,67,0.6)">履歴</button>
     </div>
   </header>
 
   <!-- 記録ビュー -->
-  <div id="view-log" class="view-panel" role="tabpanel">
+  <div id="view-log" class="view-panel" role="tabpanel" aria-labelledby="tab-log">
     <div class="flex items-center justify-between mb-3 px-0.5">
       <button id="prev-day" class="day-nav-btn" aria-label="前の日">‹</button>
       <div id="date-display" class="text-[0.97rem] font-bold tabular-nums"></div>
@@ -183,12 +268,12 @@
   </div>
 
   <!-- メニュービュー -->
-  <div id="view-menu" class="view-panel hidden" role="tabpanel">
+  <div id="view-menu" class="view-panel hidden" role="tabpanel" aria-labelledby="tab-menu">
     <div id="menu-content"></div>
   </div>
 
   <!-- 履歴ビュー -->
-  <div id="view-history" class="view-panel hidden" role="tabpanel">
+  <div id="view-history" class="view-panel hidden" role="tabpanel" aria-labelledby="tab-history">
     <div id="history-content"></div>
   </div>
 
@@ -199,6 +284,7 @@
   <div id="ex-backdrop" onclick="closeExDetail()"
        style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
   <div id="ex-sheet" class="mx-auto w-full max-w-[375px]"
+       role="dialog" aria-modal="true" aria-labelledby="ex-title"
        style="position:relative;background:#f2f2f7;border-radius:20px 20px 0 0;max-height:88dvh;display:flex;flex-direction:column;">
     <!-- ドラッグハンドル -->
     <div style="display:flex;justify-content:center;padding:0.6rem 0 0.2rem;flex-shrink:0">
@@ -210,15 +296,88 @@
         <h2 id="ex-title" style="font-size:1.3rem;font-weight:700;line-height:1.2;margin-bottom:0.2rem"></h2>
         <p id="ex-subtitle" style="font-size:0.88rem;font-weight:600;color:rgba(60,60,67,0.55)"></p>
       </div>
-      <button onclick="closeExDetail()"
-              style="flex-shrink:0;margin-top:0.1rem;width:1.9rem;height:1.9rem;border-radius:50%;background:rgba(60,60,67,0.1);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.82rem;font-weight:700;color:rgba(60,60,67,0.65)">✕</button>
+      <button onclick="closeExDetail()" aria-label="閉じる" class="close-btn"
+              style="margin-top:0.1rem;border-radius:50%;background:rgba(60,60,67,0.1);border:none;cursor:pointer;font-size:0.82rem;font-weight:700;color:rgba(60,60,67,0.65)">✕</button>
     </div>
     <!-- スクロール本体 -->
     <div id="ex-body" style="overflow-y:auto;padding:0 1rem 2rem;flex:1;min-height:0"></div>
   </div>
 </div>
 
+<!-- ── 種目追加シート ── -->
+<div id="add-ex-overlay" class="hidden">
+  <div id="add-ex-backdrop" onclick="closeAddExSheet()"
+       style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
+  <div id="add-ex-sheet" class="mx-auto w-full max-w-[375px]"
+       role="dialog" aria-modal="true" aria-labelledby="add-ex-title"
+       style="position:relative;background:#f2f2f7;border-radius:20px 20px 0 0;max-height:88dvh;display:flex;flex-direction:column;">
+    <div style="display:flex;justify-content:center;padding:0.6rem 0 0.2rem;flex-shrink:0">
+      <div style="width:2.5rem;height:4px;border-radius:2px;background:rgba(60,60,67,0.22)"></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 1rem 0.5rem;flex-shrink:0">
+      <h2 id="add-ex-title" style="font-size:1.2rem;font-weight:700;margin:0">種目を追加</h2>
+      <button onclick="closeAddExSheet()" aria-label="閉じる" class="close-btn"
+              style="border-radius:50%;background:rgba(60,60,67,0.1);border:none;cursor:pointer;font-size:0.82rem;font-weight:700;color:rgba(60,60,67,0.65)">✕</button>
+    </div>
+    <div style="padding:0 1rem 0.6rem;flex-shrink:0">
+      <div style="position:relative">
+        <span style="position:absolute;left:0.7rem;top:50%;transform:translateY(-50%);font-size:0.95rem;color:rgba(60,60,67,0.4);pointer-events:none">🔍</span>
+        <input id="ex-search" type="text" placeholder="種目を検索..." autocomplete="off"
+               aria-label="種目を検索"
+               oninput="filterExList(this.value)"
+               style="width:100%;padding:0.58rem 0.75rem 0.58rem 2.1rem;border-radius:12px;border:1.5px solid rgba(60,60,67,0.13);background:#fff;font-size:0.93rem;font-weight:500;box-sizing:border-box;-webkit-appearance:none">
+      </div>
+    </div>
+    <div id="add-ex-body" style="overflow-y:auto;padding:0 1rem 2rem;flex:1;min-height:0"></div>
+  </div>
+</div>
+
+<!-- ── RPEピッカー ── -->
+<div id="rpe-overlay" class="hidden">
+  <div id="rpe-backdrop" onclick="closeRpePicker()"
+       style="position:absolute;inset:0;background:rgba(0,0,0,0.35)"></div>
+  <div id="rpe-sheet" class="mx-auto w-full max-w-[375px]"
+       role="dialog" aria-modal="true" aria-label="強度を選択（RPE）"
+       style="position:relative;background:#f2f2f7;border-radius:20px 20px 0 0;padding-bottom:max(1.5rem,env(safe-area-inset-bottom))">
+    <div style="display:flex;justify-content:center;padding:0.6rem 0 0.2rem">
+      <div style="width:2.5rem;height:4px;border-radius:2px;background:rgba(60,60,67,0.22)"></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 1rem 0.6rem">
+      <div>
+        <div style="font-size:1.1rem;font-weight:700">強度を記録（RPE）</div>
+        <div id="rpe-context" style="font-size:0.8rem;color:rgba(60,60,67,0.5);margin-top:0.1rem;font-weight:500"></div>
+      </div>
+      <button onclick="clearRpe()"
+              style="font-size:0.82rem;font-weight:600;color:#ff3b30;background:none;border:none;cursor:pointer;padding:0.3rem 0.6rem;border-radius:8px;-webkit-tap-highlight-color:transparent">クリア</button>
+    </div>
+    <div id="rpe-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;padding:0 1rem 0.75rem"></div>
+    <div style="padding:0 1rem 0.4rem;text-align:center;font-size:0.72rem;color:rgba(60,60,67,0.42);font-weight:500;line-height:1.4">
+      RIR（残り回数）とは、あと何回できるかの余力のことです
+    </div>
+  </div>
+</div>
+
 <script>
+// ══════════════════════════════════════════════════════════
+//  セキュリティ・ユーティリティ
+// ══════════════════════════════════════════════════════════
+
+function escHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function escAttr(s) { return escHtml(s); }
+
+function parseNumeric(value) {
+  if (value === '' || value == null) return null;
+  const n = parseFloat(value);
+  return Number.isFinite(n) && n >= 0 && n <= 9999 ? n : null;
+}
+
 // ══════════════════════════════════════════════════════════
 //  定数・データ
 // ══════════════════════════════════════════════════════════
@@ -326,6 +485,26 @@ const C = {
 };
 
 // 筋肉部位 → 表示色
+// ── 種目マスターリスト ─────────────────────────────────────────
+const EXERCISE_MASTER = [
+  // 胸
+  { name: 'ベンチプレス',             muscle: '胸',  defaultUnit: 'kg'  },
+  { name: 'チェストプレス',           muscle: '胸',  defaultUnit: 'kg'  },
+  { name: 'ペックフライ',             muscle: '胸',  defaultUnit: 'kg'  },
+  // 肩
+  { name: 'バーベルプレス',           muscle: '肩',  defaultUnit: 'kg'  },
+  { name: 'キューバンプレス',         muscle: '肩',  defaultUnit: 'lbs' },
+  // 三頭
+  { name: 'フレンチプレス',           muscle: '三頭', defaultUnit: 'lbs' },
+  // 背中
+  { name: 'ラットプルダウン',         muscle: '背中', defaultUnit: 'kg'  },
+  { name: 'ヘックスバーデッドリフト', muscle: '背中', defaultUnit: 'kg'  },
+  { name: 'チンニング',               muscle: '背中', defaultUnit: null  },
+  // 脚
+  { name: 'スクワット',               muscle: '脚',  defaultUnit: 'kg'  },
+  { name: 'ダンベルスクワット',       muscle: '脚',  defaultUnit: 'lbs' },
+];
+
 const MC = {
   '胸':   { bg:'rgba(10,132,255,0.10)',  text:'#0a84ff' },
   '背中': { bg:'rgba(52,199,89,0.12)',   text:'#1a8c34' },
@@ -341,33 +520,33 @@ const WO = {
   '2026-05-01': {
     type:'胸・肩・三頭筋', duration:68,
     exercises:[
-      { name:'ベンチプレス',                  muscle:'胸',   sets:[{w:80,r:10},{w:80,r:10},{w:75,r:8},{w:75,r:8}] },
-      { name:'インクライン D.プレス',         muscle:'胸',   sets:[{w:24,r:12},{w:24,r:10},{w:22,r:10}] },
-      { name:'ダンベルフライ',                muscle:'胸',   sets:[{w:18,r:12},{w:18,r:12},{w:18,r:10}] },
-      { name:'ショルダープレス',              muscle:'肩',   sets:[{w:20,r:12},{w:20,r:10},{w:18,r:10}] },
-      { name:'ライイング T.エクステンション', muscle:'三頭', sets:[{w:15,r:12},{w:15,r:12},{w:15,r:10}] },
+      { name:'ベンチプレス',                  muscle:'胸',   sets:[{w:80,r:10,rpe:2},{w:80,r:10,rpe:2},{w:75,r:8,rpe:3},{w:75,r:8,rpe:3}] },
+      { name:'インクライン D.プレス',         muscle:'胸',   sets:[{w:24,r:12,rpe:2},{w:24,r:10,rpe:3},{w:22,r:10,rpe:3}] },
+      { name:'ダンベルフライ',                muscle:'胸',   sets:[{w:18,r:12,rpe:2},{w:18,r:12,rpe:2},{w:18,r:10,rpe:3}] },
+      { name:'ショルダープレス',              muscle:'肩',   sets:[{w:20,r:12,rpe:2},{w:20,r:10,rpe:3},{w:18,r:10,rpe:3}] },
+      { name:'ライイング T.エクステンション', muscle:'三頭', sets:[{w:15,r:12,rpe:2},{w:15,r:12,rpe:3},{w:15,r:10,rpe:3}] },
     ],
     memo:'ベンチは調子良し。ショルダーが少し疲れ気味だったが最後まで追い込めた。',
   },
   '2026-04-29': {
     type:'背中・二頭筋', duration:72,
     exercises:[
-      { name:'デッドリフト',     muscle:'背中', sets:[{w:100,r:5},{w:100,r:5},{w:90,r:6},{w:90,r:6}] },
-      { name:'ラットプルダウン', muscle:'背中', sets:[{w:60,r:12},{w:60,r:10},{w:55,r:10}] },
-      { name:'シーテッドロウ',   muscle:'背中', sets:[{w:55,r:12},{w:55,r:10},{w:50,r:10}] },
-      { name:'バーベルカール',   muscle:'二頭', sets:[{w:30,r:12},{w:30,r:10},{w:27.5,r:10}] },
-      { name:'ハンマーカール',   muscle:'二頭', sets:[{w:14,r:12},{w:14,r:12},{w:14,r:10}] },
+      { name:'デッドリフト',     muscle:'背中', sets:[{w:100,r:5,rpe:3},{w:100,r:5,rpe:3},{w:90,r:6,rpe:2},{w:90,r:6,rpe:2}] },
+      { name:'ラットプルダウン', muscle:'背中', sets:[{w:60,r:12,rpe:2},{w:60,r:10,rpe:3},{w:55,r:10,rpe:3}] },
+      { name:'シーテッドロウ',   muscle:'背中', sets:[{w:55,r:12,rpe:2},{w:55,r:10,rpe:3},{w:50,r:10,rpe:2}] },
+      { name:'バーベルカール',   muscle:'二頭', sets:[{w:30,r:12,rpe:2},{w:30,r:10,rpe:3},{w:27.5,r:10,rpe:3}] },
+      { name:'ハンマーカール',   muscle:'二頭', sets:[{w:14,r:12,rpe:2},{w:14,r:12,rpe:2},{w:14,r:10,rpe:3}] },
     ],
     memo:'デッドは先週より 5 kg 重量アップ。フォームを意識してゆっくり下ろした。',
   },
   '2026-04-27': {
     type:'脚・腹筋', duration:75,
     exercises:[
-      { name:'スクワット',   muscle:'脚', sets:[{w:90,r:10},{w:90,r:10},{w:80,r:10},{w:80,r:10}] },
-      { name:'レッグプレス', muscle:'脚', sets:[{w:150,r:15},{w:150,r:12},{w:150,r:12}] },
-      { name:'レッグカール', muscle:'脚', sets:[{w:40,r:12},{w:40,r:12},{w:37.5,r:12}] },
-      { name:'クランチ',     muscle:'腹', sets:[{w:0,r:25},{w:0,r:25},{w:0,r:20}] },
-      { name:'プランク',     muscle:'腹', sets:[{w:0,r:60},{w:0,r:60},{w:0,r:45}], isSeconds:true },
+      { name:'スクワット',   muscle:'脚', sets:[{w:90,r:10,rpe:3},{w:90,r:10,rpe:3},{w:80,r:10,rpe:2},{w:80,r:10,rpe:2}] },
+      { name:'レッグプレス', muscle:'脚', sets:[{w:150,r:15,rpe:2},{w:150,r:12,rpe:3},{w:150,r:12,rpe:3}] },
+      { name:'レッグカール', muscle:'脚', sets:[{w:40,r:12,rpe:2},{w:40,r:12,rpe:2},{w:37.5,r:12,rpe:2}] },
+      { name:'クランチ',     muscle:'腹', sets:[{w:0,r:25,rpe:2},{w:0,r:25,rpe:2},{w:0,r:20,rpe:3}] },
+      { name:'プランク',     muscle:'腹', sets:[{w:0,r:60,rpe:2},{w:0,r:60,rpe:3},{w:0,r:45,rpe:3}], isSeconds:true },
     ],
     memo:'スクワットで膝が少し痛かったので、重量下げて回数で攻めた。',
   },
@@ -426,6 +605,30 @@ const completedDates = new Set(['2026-04-27', '2026-04-29']);
 let menuIsNew = true;
 // フィードバック新着（完了後に更新）
 let feedbackIsNew = false;
+// RPEピッカー対象
+let rpePickerTarget = null;
+
+// getExSessions のレンダリング内キャッシュ（renderLog 1回分）
+let _sessionsCache = null;
+
+// オーバーレイ開閉時のフォーカス復帰用
+let _exDetailOpener = null;
+let _addExOpener    = null;
+let _rpeOpener      = null;
+
+// RPE 3段階: 1=余裕あり(緑) / 2=きつい(橙) / 3=限界(赤)
+function rpeColor(rpe) {
+  if (rpe == null) return { bg:'rgba(60,60,67,0.07)', text:'rgba(60,60,67,0.38)' };
+  if (rpe === 1)  return { bg:'rgba(52,199,89,0.13)',  text:'#1a8c34' };
+  if (rpe === 2)  return { bg:'rgba(255,149,0,0.13)',  text:'#c47700' };
+  return            { bg:'rgba(255,45,85,0.12)',  text:'#c0002f' };
+}
+function rpeBadgeLabel(rpe) {
+  if (rpe === 1) return '楽';
+  if (rpe === 2) return '強';
+  if (rpe === 3) return '限';
+  return '―';
+}
 
 function shiftDate(d, n) {
   const dt = new Date(d + 'T00:00:00');
@@ -480,6 +683,12 @@ function getExSessions(name) {
     });
 }
 
+function getExSessionsCached(name) {
+  if (!_sessionsCache) _sessionsCache = new Map();
+  if (!_sessionsCache.has(name)) _sessionsCache.set(name, getExSessions(name));
+  return _sessionsCache.get(name);
+}
+
 // 全種目を筋肉部位別に集約
 function getAllExByMuscle() {
   const map = new Map();
@@ -523,6 +732,7 @@ function showToast(msg) {
 
 
 function renderLog() {
+  _sessionsCache = new Map();
   document.getElementById('date-display').textContent = fmtDate(currentDate);
   document.getElementById('prev-day').disabled = currentDate <= MIN_DATE;
   document.getElementById('next-day').disabled = currentDate >= TODAY;
@@ -530,6 +740,7 @@ function renderLog() {
   const el = document.getElementById('day-content');
   el.innerHTML = wo ? buildWorkout(wo) : buildRestDay();
   el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in');
+  _sessionsCache = null;
 }
 
 function buildWorkout(wo) {
@@ -566,6 +777,12 @@ function buildWorkout(wo) {
        style="color:rgba(60,60,67,0.5)">種目詳細 <span style="font-size:0.7rem;font-weight:500">— 種目名をタップで履歴確認</span></div>
   <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
     ${exHtml}
+    <div style="border-top:1px solid rgba(60,60,67,0.1)">
+      <button onclick="openAddExSheet()"
+              style="display:flex;align-items:center;justify-content:center;gap:0.4rem;width:100%;padding:0.75rem 1rem;background:transparent;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent;color:#007aff;font-size:0.9rem;font-weight:700">
+        <span style="font-size:1.15rem;font-weight:300;line-height:1">＋</span> 種目を追加
+      </button>
+    </div>
   </div>
 </section>
 
@@ -573,7 +790,7 @@ ${wo.memo ? `
 <section class="mb-3 rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
   <div class="px-4 py-3">
     <div class="text-[0.78rem] font-semibold uppercase tracking-wide mb-2" style="color:rgba(60,60,67,0.5)">メモ</div>
-    <p class="text-[0.95rem] leading-relaxed">${wo.memo}</p>
+    <p class="text-[0.95rem] leading-relaxed">${escHtml(wo.memo)}</p>
   </div>
 </section>` : ''}
 
@@ -581,31 +798,37 @@ ${buildCompleteButton(currentDate)}`;
 }
 
 function buildExercise(ex, idx, total) {
+  if (ex.editable) return buildEditableExercise(ex, idx);
   const vol    = calcVol(ex.sets, ex.isSeconds);
   const topBdr = idx > 0 ? 'border-top:1px solid rgba(60,60,67,0.1)' : '';
   const mc     = mcOf(ex.muscle);
-  const sessions = getExSessions(ex.name);
+  const sessions = getExSessionsCached(ex.name);
   const sessionCount = sessions.length;
 
   const rowsHtml = ex.sets.map((s, si) => {
     const wLabel = s.w === 0 ? (ex.isSeconds ? '―' : '自重') : `${s.w} kg`;
     const rLabel = ex.isSeconds ? `${s.r} 秒` : `${s.r} 回`;
     const bdr = si < ex.sets.length-1 ? 'border-bottom:1px solid rgba(60,60,67,0.06)' : '';
+    const rc = rpeColor(s.rpe);
+    const rpeLabel = rpeBadgeLabel(s.rpe);
     return `
-<div style="display:grid;grid-template-columns:2rem 1fr auto;align-items:center;padding:0.46rem 1rem;${bdr}">
+<div style="display:grid;grid-template-columns:2rem 1fr auto auto;align-items:center;padding:0.46rem 1rem;${bdr}">
   <span style="font-size:0.78rem;font-weight:700;color:rgba(60,60,67,0.38);font-variant-numeric:tabular-nums">${si+1}</span>
-  <span style="font-size:0.92rem;font-weight:600;font-variant-numeric:tabular-nums">${wLabel}</span>
-  <span style="font-size:0.85rem;font-weight:500;color:rgba(60,60,67,0.58);font-variant-numeric:tabular-nums">× ${rLabel}</span>
+  <span style="font-size:0.92rem;font-weight:600;font-variant-numeric:tabular-nums">${escHtml(wLabel)}</span>
+  <span style="font-size:0.85rem;font-weight:500;color:rgba(60,60,67,0.58);font-variant-numeric:tabular-nums;margin-right:0.4rem">× ${escHtml(rLabel)}</span>
+  <button type="button" data-action="open-rpe" data-ex-name="${escAttr(ex.name)}" data-set-idx="${si}"
+          style="font-size:0.75rem;font-weight:700;border-radius:6px;padding:0.12rem 0.4rem;background:${rc.bg};color:${rc.text};cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap;text-align:center;min-width:2.75rem;min-height:2.75rem;border:none;display:flex;align-items:center;justify-content:center">${escHtml(rpeLabel)}</button>
 </div>`;
   }).join('');
 
   return `
 <div style="${topBdr}">
-  <div class="ex-name-btn" onclick="openExDetail('${ex.name.replace(/'/g,"\\'")}');"
+  <div class="ex-name-btn" data-action="open-ex-detail" data-ex-name="${escAttr(ex.name)}"
+       role="button" tabindex="0"
        style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem 0.35rem;margin:0 -0.25rem;border-radius:6px">
     <div style="display:flex;align-items:center;gap:0.45rem;min-width:0;flex:1">
-      <span style="font-size:0.97rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ex.name}</span>
-      <span style="flex-shrink:0;border-radius:999px;padding:0.1rem 0.45rem;font-size:0.72rem;font-weight:600;background:${mc.bg};color:${mc.text}">${ex.muscle}</span>
+      <span style="font-size:0.97rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ex.name)}</span>
+      <span style="flex-shrink:0;border-radius:999px;padding:0.1rem 0.45rem;font-size:0.72rem;font-weight:600;background:${mc.bg};color:${mc.text}">${escHtml(ex.muscle)}</span>
       <span style="flex-shrink:0;font-size:0.72rem;color:rgba(60,60,67,0.4)">${sessionCount}回実施</span>
     </div>
     <div style="display:flex;align-items:center;gap:0.35rem;flex-shrink:0;margin-left:0.5rem">
@@ -613,13 +836,88 @@ function buildExercise(ex, idx, total) {
       <span style="font-size:0.95rem;color:rgba(60,60,67,0.28)">›</span>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:2rem 1fr auto;padding:0.26rem 1rem;background:rgba(60,60,67,0.04)">
+  <div style="display:grid;grid-template-columns:2rem 1fr auto auto;padding:0.26rem 1rem;background:rgba(60,60,67,0.04)">
     <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">SET</span>
     <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">重量</span>
-    <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">回数</span>
+    <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35);margin-right:0.4rem">回数</span>
+    <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35);text-align:right">RPE</span>
   </div>
   ${rowsHtml}
 </div>`;
+}
+
+function buildEditableExercise(ex, idx) {
+  const mc      = mcOf(ex.muscle);
+  const topBdr  = idx > 0 ? 'border-top:1px solid rgba(60,60,67,0.1)' : '';
+  const unit    = ex.unit || 'kg';
+  const isBw    = !ex.unit;
+  const ds      = currentDate;
+
+  const setRows = ex.sets.map((s, si) => {
+    const bdr  = si < ex.sets.length - 1 ? 'border-bottom:1px solid rgba(60,60,67,0.06)' : '';
+    const wVal = s.w !== null && s.w !== undefined ? s.w : '';
+    const rVal = s.r !== null && s.r !== undefined ? s.r : '';
+    const wInput = isBw ? `<span style="font-size:0.85rem;font-weight:600;color:rgba(60,60,67,0.45)">自重</span>` : `
+<div style="display:flex;align-items:center;gap:0.3rem">
+  <input type="number" inputmode="decimal" placeholder="―" value="${escAttr(String(wVal))}"
+         onchange="updateSet('${escAttr(ds)}','${escAttr(ex.name)}',${si},'w',this.value)"
+         class="ex-input" style="width:62px">
+  <span style="font-size:0.72rem;font-weight:600;color:rgba(60,60,67,0.42);white-space:nowrap">${escHtml(unit)}</span>
+</div>`;
+    const rc = rpeColor(s.rpe);
+    const rpeLabel = rpeBadgeLabel(s.rpe);
+    return `
+<div style="display:grid;grid-template-columns:2rem 1fr 1.2rem 1fr auto;align-items:center;padding:0.5rem 1rem;${bdr}">
+  <span style="font-size:0.76rem;font-weight:700;color:rgba(60,60,67,0.35)">${si + 1}</span>
+  ${wInput}
+  <span style="font-size:0.8rem;color:rgba(60,60,67,0.3);text-align:center">×</span>
+  <div style="display:flex;align-items:center;gap:0.3rem">
+    <input type="number" inputmode="numeric" placeholder="―" value="${escAttr(String(rVal))}"
+           onchange="updateSet('${escAttr(ds)}','${escAttr(ex.name)}',${si},'r',this.value)"
+           class="ex-input" style="width:52px">
+    <span style="font-size:0.72rem;font-weight:600;color:rgba(60,60,67,0.42)">${ex.isSeconds ? '秒' : '回'}</span>
+  </div>
+  <button type="button" data-action="open-rpe" data-ex-name="${escAttr(ex.name)}" data-set-idx="${si}"
+          style="font-size:0.75rem;font-weight:700;border-radius:6px;padding:0.12rem 0.4rem;background:${rc.bg};color:${rc.text};cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap;text-align:center;min-width:2.75rem;min-height:2.75rem;border:none;margin-left:0.3rem;display:flex;align-items:center;justify-content:center">${escHtml(rpeLabel)}</button>
+</div>`;
+  }).join('');
+
+  return `
+<div style="${topBdr}">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem 0.3rem">
+    <div style="display:flex;align-items:center;gap:0.4rem;min-width:0;flex:1">
+      <span style="font-size:0.97rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ex.name)}</span>
+      <span style="flex-shrink:0;border-radius:999px;padding:0.08rem 0.42rem;font-size:0.7rem;font-weight:600;background:${mc.bg};color:${mc.text}">${escHtml(ex.muscle)}</span>
+      ${!isBw ? `<span style="flex-shrink:0;border-radius:999px;padding:0.08rem 0.42rem;font-size:0.7rem;font-weight:600;background:rgba(60,60,67,0.07);color:rgba(60,60,67,0.5)">${escHtml(unit)}</span>` : ''}
+    </div>
+    <button type="button" data-action="remove-ex" data-ex-name="${escAttr(ex.name)}" aria-label="${escAttr(ex.name)}を削除" class="delete-btn"
+      style="border-radius:50%;background:rgba(255,59,48,0.09);border:none;cursor:pointer;font-size:0.72rem;color:#ff3b30;-webkit-tap-highlight-color:transparent">✕</button>
+  </div>
+  <div style="display:grid;grid-template-columns:2rem 1fr 1.2rem 1fr auto;padding:0.24rem 1rem;background:rgba(60,60,67,0.04)">
+    <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35)">SET</span>
+    <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35)">重量</span>
+    <span></span>
+    <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35)">回数</span>
+    <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35);text-align:right;margin-left:0.3rem">RPE</span>
+  </div>
+  ${setRows}
+</div>`;
+}
+
+function updateSet(dateStr, exName, setIdx, field, value) {
+  const wo = WO[dateStr];
+  if (!wo) return;
+  const ex = wo.exercises.find(e => e.name === exName);
+  if (!ex || !ex.sets[setIdx]) return;
+  ex.sets[setIdx][field] = parseNumeric(value);
+}
+
+function removeExercise(exName, dateStr) {
+  const wo = WO[dateStr];
+  if (!wo) return;
+  wo.exercises = wo.exercises.filter(e => e.name !== exName);
+  renderLog();
+  showToast(`${exName} を削除しました`);
 }
 
 function buildRestDay() {
@@ -754,7 +1052,7 @@ function buildCalendar(year, month) {
     const clickable = wo || isToday;
     return `
 <div class="${clickable?'cal-day-btn':''}" style="${wrapStyle}"
-     ${clickable ? `onclick="gotoDate('${ds}')" role="button" tabindex="0"` : ''}>
+     ${clickable ? `data-action="goto-date" data-date="${ds}" role="button" tabindex="0"` : ''}>
   <span style="${numStyle}">${d}</span>${dot}
 </div>`;
   }).join('');
@@ -800,14 +1098,15 @@ function buildExerciseListSection() {
         : ex.bestW > 0 ? `最高 ${ex.bestW} kg` : '自重';
       return `
 ${sep}
-<div class="tap-row" onclick="openExDetail('${ex.name.replace(/'/g,"\\'")}');"
+<div class="tap-row" data-action="open-ex-detail" data-ex-name="${escAttr(ex.name)}"
+     role="button" tabindex="0"
      style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem">
   <div style="min-width:0;flex:1">
-    <div style="font-size:0.95rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ex.name}</div>
+    <div style="font-size:0.95rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ex.name)}</div>
     <div style="font-size:0.78rem;color:rgba(60,60,67,0.5);margin-top:0.15rem">${ex.sessionCount}回実施　·　最終: ${fmtRelDate(ex.lastDate)}</div>
   </div>
   <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;margin-left:0.5rem">
-    <span style="font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.5)">${bestLabel}</span>
+    <span style="font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.5)">${escHtml(bestLabel)}</span>
     <span style="font-size:1rem;color:rgba(60,60,67,0.25)">›</span>
   </div>
 </div>`;
@@ -847,7 +1146,7 @@ function buildHistoryList() {
     const sep = i > 0 ? `<div style="height:1px;background:rgba(60,60,67,0.1);margin-left:3.75rem"></div>` : '';
     return `
 ${sep}
-<div class="tap-row" onclick="gotoDate('${ds}')"
+<div class="tap-row" data-action="goto-date" data-date="${ds}" role="button" tabindex="0"
      style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem">
   <div style="flex-shrink:0;width:2.5rem;height:2.5rem;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${col.bg}">
     <div style="width:0.7rem;height:0.7rem;border-radius:50%;background:${col.dot}"></div>
@@ -881,6 +1180,7 @@ ${sep}
 // ══════════════════════════════════════════════════════════
 
 function openExDetail(name) {
+  _exDetailOpener = document.activeElement;
   const sessions = getExSessions(name);
   if (!sessions.length) return;
 
@@ -949,6 +1249,10 @@ function openExDetail(name) {
   const overlay = document.getElementById('ex-overlay');
   overlay.classList.remove('hidden', 'closing');
   document.body.style.overflow = 'hidden';
+  setTimeout(() => {
+    const btn = document.querySelector('#ex-sheet .close-btn');
+    if (btn) btn.focus();
+  }, 350);
 }
 
 function closeExDetail() {
@@ -958,7 +1262,335 @@ function closeExDetail() {
     overlay.classList.add('hidden');
     overlay.classList.remove('closing');
     document.body.style.overflow = '';
+    if (_exDetailOpener) { _exDetailOpener.focus(); _exDetailOpener = null; }
   }, 300);
+}
+
+// ══════════════════════════════════════════════════════════
+//  種目追加シート
+// ══════════════════════════════════════════════════════════
+
+function getExFrequency() {
+  const freq = {};
+  Object.values(WO).forEach(wo => {
+    wo.exercises.forEach(ex => {
+      freq[ex.name] = (freq[ex.name] || 0) + 1;
+    });
+  });
+  return freq;
+}
+
+// 種目追加の確認ステップ用状態
+let pendingAddEx = null; // { name, muscle, isSeconds, unit }
+
+function openAddExSheet() {
+  _addExOpener = document.activeElement;
+  pendingAddEx = null;
+  const input = document.getElementById('ex-search');
+  if (input) input.value = '';
+  buildAndShowAddExBody('');
+  const overlay = document.getElementById('add-ex-overlay');
+  overlay.classList.remove('hidden', 'closing');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => {
+    const inp = document.getElementById('ex-search');
+    if (inp) inp.focus();
+  }, 360);
+}
+
+function closeAddExSheet() {
+  pendingAddEx = null;
+  const overlay = document.getElementById('add-ex-overlay');
+  overlay.classList.add('closing');
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('closing');
+    document.body.style.overflow = '';
+    if (_addExOpener) { _addExOpener.focus(); _addExOpener = null; }
+  }, 300);
+}
+
+function setPendingEx(name, muscle, isSeconds, defaultUnit) {
+  pendingAddEx = {
+    name, muscle, isSeconds,
+    unit: defaultUnit || 'kg',
+  };
+  buildAndShowAddExBody(document.getElementById('ex-search')?.value || '');
+  document.getElementById('add-ex-body')?.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setPendingUnit(unit) {
+  if (!pendingAddEx) return;
+  pendingAddEx.unit = unit;
+  buildAndShowAddExBody(document.getElementById('ex-search')?.value || '');
+}
+
+function cancelPendingEx() {
+  pendingAddEx = null;
+  buildAndShowAddExBody(document.getElementById('ex-search')?.value || '');
+}
+
+function confirmAddEx() {
+  if (!pendingAddEx) return;
+  const { name, muscle, isSeconds, unit } = pendingAddEx;
+  pendingAddEx = null;
+  addExerciseToWorkout(name, muscle, isSeconds, unit);
+}
+
+function buildPendingConfirmHtml() {
+  if (!pendingAddEx) return '';
+  const mc = mcOf(pendingAddEx.muscle);
+  const isBw = !pendingAddEx.unit;
+  const u = pendingAddEx.unit;
+
+  const unitToggle = isBw ? `
+<span style="font-size:0.82rem;font-weight:600;color:rgba(60,60,67,0.5);padding:0.3rem 0.5rem">自重</span>` : `
+<div style="display:flex;border-radius:8px;overflow:hidden;border:1.5px solid rgba(60,60,67,0.15)">
+  <button onclick="setPendingUnit('kg')"
+    style="padding:0.32rem 0.75rem;border:none;cursor:pointer;font-size:0.82rem;font-weight:700;background:${u==='kg'?'#007aff':'transparent'};color:${u==='kg'?'#fff':'rgba(60,60,67,0.55)'};transition:all 0.15s;-webkit-tap-highlight-color:transparent">kg</button>
+  <button onclick="setPendingUnit('lbs')"
+    style="padding:0.32rem 0.75rem;border:none;cursor:pointer;font-size:0.82rem;font-weight:700;background:${u==='lbs'?'#007aff':'transparent'};color:${u==='lbs'?'#fff':'rgba(60,60,67,0.55)'};transition:all 0.15s;-webkit-tap-highlight-color:transparent">lbs</button>
+</div>`;
+
+  return `
+<div class="mb-3 rounded-[14px] bg-white overflow-hidden fade-in"
+     style="box-shadow:0 2px 10px rgba(0,122,255,0.15);border:1.5px solid rgba(0,122,255,0.25)">
+  <div style="padding:0.75rem 1rem">
+    <div style="font-size:0.7rem;font-weight:700;color:#007aff;text-transform:uppercase;letter-spacing:.05em;margin-bottom:0.5rem">追加する種目を確認</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.65rem">
+      <div style="display:flex;align-items:center;gap:0.4rem;min-width:0;flex:1">
+        <span style="font-size:1rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(pendingAddEx.name)}</span>
+        <span style="flex-shrink:0;border-radius:999px;padding:0.07rem 0.42rem;font-size:0.7rem;font-weight:600;background:${mc.bg};color:${mc.text}">${escHtml(pendingAddEx.muscle)}</span>
+      </div>
+      ${unitToggle}
+    </div>
+    <div style="display:flex;gap:0.45rem">
+      <button onclick="cancelPendingEx()"
+        style="flex:1;padding:0.55rem;border-radius:10px;border:1.5px solid rgba(60,60,67,0.15);background:transparent;font-size:0.88rem;font-weight:600;color:rgba(60,60,67,0.6);cursor:pointer;-webkit-tap-highlight-color:transparent">
+        キャンセル
+      </button>
+      <button onclick="confirmAddEx()"
+        style="flex:2;padding:0.55rem;border-radius:10px;border:none;background:#007aff;color:#fff;font-size:0.88rem;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">
+        追加する
+      </button>
+    </div>
+  </div>
+</div>`;
+}
+
+function filterExList(query) {
+  buildAndShowAddExBody(query);
+}
+
+function buildAndShowAddExBody(query) {
+  const body = document.getElementById('add-ex-body');
+  if (!body) return;
+  body.innerHTML = buildAddExBodyHtml(query);
+}
+
+function buildAddExBodyHtml(query) {
+  const freq = getExFrequency();
+  const q = query.trim().toLowerCase();
+  const currentExNames = new Set(
+    WO[currentDate] ? WO[currentDate].exercises.map(e => e.name) : []
+  );
+
+  // 確認パネルを最上部に表示
+  let html = buildPendingConfirmHtml();
+
+  const filtered = EXERCISE_MASTER.filter(ex =>
+    !q || ex.name.toLowerCase().includes(q) || ex.muscle.includes(q)
+  );
+
+  if (!q) {
+    // よく使う種目（使用回数 >= 1 を頻度降順）
+    const frequent = [...EXERCISE_MASTER]
+      .filter(ex => freq[ex.name])
+      .sort((a, b) => (freq[b.name] || 0) - (freq[a.name] || 0))
+      .slice(0, 8);
+
+    if (frequent.length > 0) {
+      const rows = frequent.map((ex, i) =>
+        buildAddExRow(ex, freq, currentExNames, i, frequent.length)
+      ).join('');
+      html += `
+<div class="mb-3">
+  <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:rgba(60,60,67,0.45);margin-bottom:0.5rem;padding:0 0.15rem">⭐ よく使う種目</div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+    ${rows}
+  </div>
+</div>`;
+    }
+
+    // 筋肉部位別
+    const muscleOrder = ['胸','肩','三頭','背中','二頭','脚','腹'];
+    const grouped = {};
+    filtered.forEach(ex => {
+      if (!grouped[ex.muscle]) grouped[ex.muscle] = [];
+      grouped[ex.muscle].push(ex);
+    });
+    const sortedMuscles = Object.keys(grouped).sort((a, b) => {
+      const ia = muscleOrder.indexOf(a), ib = muscleOrder.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+
+    sortedMuscles.forEach(muscle => {
+      const mc = mcOf(muscle);
+      const exercises = grouped[muscle];
+      const rows = exercises.map((ex, i) =>
+        buildAddExRow(ex, freq, currentExNames, i, exercises.length)
+      ).join('');
+      html += `
+<div class="mb-3">
+  <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.5rem;padding:0 0.15rem">
+    <span style="display:inline-block;border-radius:999px;padding:0.1rem 0.5rem;font-size:0.72rem;font-weight:700;background:${mc.bg};color:${mc.text}">${muscle}</span>
+  </div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+    ${rows}
+  </div>
+</div>`;
+    });
+
+    html += buildCustomExSection();
+
+  } else {
+    // 検索結果
+    if (filtered.length === 0) {
+      html = `
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem 1rem;color:rgba(60,60,67,0.45)">
+  <div style="font-size:2rem;margin-bottom:0.5rem">🔍</div>
+  <div style="font-size:0.9rem;font-weight:600;margin-bottom:0.2rem">「${escHtml(query)}」が見つかりません</div>
+  <div style="font-size:0.78rem">カスタム種目として追加できます</div>
+</div>`;
+    } else {
+      const rows = filtered.map((ex, i) =>
+        buildAddExRow(ex, freq, currentExNames, i, filtered.length)
+      ).join('');
+      html += `
+<div class="mb-3">
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12)">
+    ${rows}
+  </div>
+</div>`;
+    }
+    html += buildCustomExSection(query);
+  }
+
+  return html;
+}
+
+function buildAddExRow(ex, freq, currentExNames, idx, total) {
+  const mc      = mcOf(ex.muscle);
+  const count   = freq[ex.name] || 0;
+  const isAdded = currentExNames.has(ex.name);
+  const border  = idx > 0 ? 'border-top:1px solid rgba(60,60,67,0.08)' : '';
+  const du = ex.defaultUnit === undefined ? 'kg' : ex.defaultUnit;
+
+  return `
+<div style="${border};display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem;cursor:${isAdded ? 'default' : 'pointer'};opacity:${isAdded ? 0.45 : 1};-webkit-tap-highlight-color:transparent;"
+     ${isAdded ? '' : `data-action="set-pending-ex" data-ex-name="${escAttr(ex.name)}" data-ex-muscle="${escAttr(ex.muscle)}" data-ex-is-seconds="${!!ex.isSeconds}" data-ex-unit="${escAttr(du === null ? 'null' : du)}"`}
+     ${isAdded ? '' : 'role="button" tabindex="0"'}
+     class="${isAdded ? '' : 'add-ex-row'}">
+  <div style="min-width:0;flex:1">
+    <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.1rem;flex-wrap:wrap">
+      <span style="font-size:0.93rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ex.name)}</span>
+      <span style="flex-shrink:0;border-radius:999px;padding:0.07rem 0.42rem;font-size:0.7rem;font-weight:600;background:${mc.bg};color:${mc.text}">${escHtml(ex.muscle)}</span>
+      ${ex.isSeconds ? `<span style="flex-shrink:0;border-radius:999px;padding:0.07rem 0.42rem;font-size:0.68rem;font-weight:600;background:rgba(60,60,67,0.07);color:rgba(60,60,67,0.55)">秒</span>` : ''}
+    </div>
+    ${count > 0
+      ? `<div style="font-size:0.74rem;color:rgba(60,60,67,0.45)">${count}回実施</div>`
+      : `<div style="font-size:0.74rem;color:rgba(60,60,67,0.3)">未実施</div>`
+    }
+  </div>
+  <div style="flex-shrink:0;margin-left:0.5rem">
+    ${isAdded
+      ? `<span style="font-size:0.72rem;font-weight:700;color:#34c759">追加済</span>`
+      : `<span style="font-size:1.3rem;font-weight:300;color:rgba(10,132,255,0.7);line-height:1">＋</span>`
+    }
+  </div>
+</div>`;
+}
+
+function buildCustomExSection(prefill = '') {
+  const muscleOpts = ['胸','肩','三頭','背中','二頭','脚','腹'].map(m =>
+    `<option value="${m}">${m}</option>`
+  ).join('');
+  const safeVal = prefill.replace(/"/g, '&quot;');
+
+  return `
+<div class="mb-3">
+  <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:rgba(60,60,67,0.45);margin-bottom:0.5rem;padding:0 0.15rem">＋ カスタム種目</div>
+  <div class="rounded-[14px] bg-white overflow-hidden" style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12);padding:0.85rem 1rem">
+    <div style="display:flex;flex-direction:column;gap:0.55rem">
+      <input id="custom-ex-name" type="text" value="${safeVal}" placeholder="種目名を入力…" autocomplete="off"
+             style="width:100%;padding:0.58rem 0.75rem;border-radius:10px;border:1.5px solid rgba(60,60,67,0.13);background:#f9f9fb;font-size:0.93rem;font-weight:500;box-sizing:border-box;-webkit-appearance:none">
+      <div style="display:flex;gap:0.45rem;align-items:center">
+        <select id="custom-ex-muscle"
+                style="flex:1;padding:0.52rem 0.6rem;border-radius:10px;border:1.5px solid rgba(60,60,67,0.13);background:#f9f9fb;font-size:0.88rem;font-weight:600;color:#000;-webkit-appearance:auto">
+          ${muscleOpts}
+        </select>
+        <div style="display:flex;border-radius:8px;overflow:hidden;border:1.5px solid rgba(60,60,67,0.15);flex-shrink:0">
+          <button id="custom-unit-kg" onclick="setCustomUnit('kg')"
+            style="padding:0.32rem 0.6rem;border:none;cursor:pointer;font-size:0.8rem;font-weight:700;background:#007aff;color:#fff;-webkit-tap-highlight-color:transparent">kg</button>
+          <button id="custom-unit-lbs" onclick="setCustomUnit('lbs')"
+            style="padding:0.32rem 0.6rem;border:none;cursor:pointer;font-size:0.8rem;font-weight:700;background:transparent;color:rgba(60,60,67,0.55);-webkit-tap-highlight-color:transparent">lbs</button>
+        </div>
+        <button onclick="addCustomExercise()"
+                style="padding:0.52rem 1rem;border-radius:10px;background:#007aff;color:#fff;border:none;font-size:0.88rem;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap;flex-shrink:0">
+          追加
+        </button>
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+let _customUnit = 'kg';
+function setCustomUnit(u) {
+  _customUnit = u;
+  const kg  = document.getElementById('custom-unit-kg');
+  const lbs = document.getElementById('custom-unit-lbs');
+  if (!kg || !lbs) return;
+  kg.style.background  = u === 'kg'  ? '#007aff' : 'transparent';
+  kg.style.color       = u === 'kg'  ? '#fff'    : 'rgba(60,60,67,0.55)';
+  lbs.style.background = u === 'lbs' ? '#007aff' : 'transparent';
+  lbs.style.color      = u === 'lbs' ? '#fff'    : 'rgba(60,60,67,0.55)';
+}
+
+function addCustomExercise() {
+  const nameEl   = document.getElementById('custom-ex-name');
+  const muscleEl = document.getElementById('custom-ex-muscle');
+  if (!nameEl || !muscleEl) return;
+  const name   = nameEl.value.trim();
+  const muscle = muscleEl.value;
+  if (!name) { showToast('種目名を入力してください'); return; }
+  if (!EXERCISE_MASTER.some(e => e.name === name)) {
+    EXERCISE_MASTER.push({ name, muscle, defaultUnit: _customUnit });
+  }
+  addExerciseToWorkout(name, muscle, false, _customUnit);
+  _customUnit = 'kg';
+}
+
+function addExerciseToWorkout(name, muscle, isSeconds, unit) {
+  const ds = currentDate;
+  if (!WO[ds]) {
+    WO[ds] = { type: '全身', duration: 0, exercises: [], memo: '' };
+  }
+  if (WO[ds].exercises.some(e => e.name === name)) {
+    showToast(`${name} はすでに追加されています`);
+    closeAddExSheet();
+    return;
+  }
+  WO[ds].exercises.push({
+    name, muscle,
+    isSeconds: isSeconds || false,
+    unit: unit || 'kg',
+    editable: true,
+    sets: Array.from({ length: 5 }, () => ({ w: null, r: null })),
+  });
+  closeAddExSheet();
+  renderLog();
+  showToast(`✓ ${name} を追加しました`);
 }
 
 // ── 重量推移 SVG チャート ─────────────────────────────────
@@ -1049,12 +1681,14 @@ function buildExSessionList(sessions) {
       const isBestSet = !ex.isSeconds && s.w === sessMaxW && sessMaxW !== null;
       const wLabel = s.w === 0 ? (ex.isSeconds ? '―' : '自重') : `${s.w} kg`;
       const rLabel = ex.isSeconds ? `${s.r} 秒` : `${s.r} 回`;
+      const rc = rpeColor(s.rpe);
       return `
-<div style="display:grid;grid-template-columns:2rem 1fr auto auto;align-items:center;padding:0.42rem 1rem;${si < ex.sets.length-1 ? 'border-bottom:1px solid rgba(60,60,67,0.06)' : ''}">
+<div style="display:grid;grid-template-columns:2rem 1fr auto auto auto;align-items:center;padding:0.42rem 1rem;${si < ex.sets.length-1 ? 'border-bottom:1px solid rgba(60,60,67,0.06)' : ''}">
   <span style="font-size:0.76rem;font-weight:700;color:rgba(60,60,67,0.35);font-variant-numeric:tabular-nums">${si+1}</span>
   <span style="font-size:0.9rem;font-weight:600;font-variant-numeric:tabular-nums;color:${isBestSet?'#007aff':'#000'}">${wLabel}</span>
-  <span style="font-size:0.82rem;font-weight:500;color:rgba(60,60,67,0.55);font-variant-numeric:tabular-nums;margin-right:0.4rem">× ${rLabel}</span>
+  <span style="font-size:0.82rem;font-weight:500;color:rgba(60,60,67,0.55);font-variant-numeric:tabular-nums;margin-right:0.3rem">× ${rLabel}</span>
   ${isBestSet ? `<span style="font-size:0.68rem;font-weight:700;color:#007aff;background:rgba(10,132,255,0.1);border-radius:4px;padding:0.05rem 0.3rem">最高</span>` : '<span></span>'}
+  ${s.rpe != null ? `<span style="font-size:0.72rem;font-weight:700;border-radius:6px;padding:0.08rem 0.35rem;background:${rc.bg};color:${rc.text};white-space:nowrap;text-align:center;min-width:1.5rem">${rpeBadgeLabel(s.rpe)}</span>` : '<span></span>'}
 </div>`;
     }).join('');
 
@@ -1075,11 +1709,12 @@ ${sep}
     </div>
     ${volStr ? `<span style="font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.4)">${volStr}</span>` : ''}
   </div>
-  <div style="display:grid;grid-template-columns:2rem 1fr auto auto;padding:0.24rem 1rem;background:rgba(60,60,67,0.04)">
+  <div style="display:grid;grid-template-columns:2rem 1fr auto auto auto;padding:0.24rem 1rem;background:rgba(60,60,67,0.04)">
     <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">SET</span>
     <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35)">重量</span>
-    <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35);margin-right:0.4rem">回数</span>
+    <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35);margin-right:0.3rem">回数</span>
     <span></span>
+    <span style="font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(60,60,67,0.35);text-align:right">RPE</span>
   </div>
   ${setRows}
 </div>`;
@@ -1194,7 +1829,7 @@ function buildWeekGrid() {
 
     const clickable = !!plan;
     return `
-<div ${clickable ? `onclick="selectMenuDay('${ds}')"` : ''}
+<div ${clickable ? `data-action="select-menu-day" data-date="${ds}" role="button" tabindex="0"` : ''}
      style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:0.4rem 0.15rem;border-radius:10px;${border}cursor:${clickable?'pointer':'default'};-webkit-tap-highlight-color:transparent;">
   <span style="font-size:0.72rem;font-weight:600;color:rgba(60,60,67,0.45)">${dayLabel}</span>
   ${plan
@@ -1361,6 +1996,96 @@ function selectMenuDay(ds) {
 }
 
 // ══════════════════════════════════════════════════════════
+//  RPEピッカー
+// ══════════════════════════════════════════════════════════
+
+function openRpePicker(exName, setIdx) {
+  const wo = WO[currentDate];
+  if (!wo) return;
+  const ex = wo.exercises.find(e => e.name === exName);
+  if (!ex || setIdx >= ex.sets.length) return;
+
+  rpePickerTarget = { date: currentDate, exName, setIdx };
+  _rpeOpener = document.activeElement;
+  const s = ex.sets[setIdx];
+  const currentRpe = s.rpe;
+
+  // コンテキストラベル
+  const wLabel = s.w > 0 ? `${s.w} kg` : (ex.isSeconds ? '―' : '自重');
+  const rLabel = ex.isSeconds ? `${s.r}秒` : `${s.r}回`;
+  document.getElementById('rpe-context').textContent =
+    `${exName}　セット${setIdx + 1}　${wLabel} × ${rLabel}`;
+
+  // ボタングリッド生成（3段階）
+  const grid = document.getElementById('rpe-grid');
+  const levels = [
+    { val:1, icon:'🟢', name:'余裕あり', sub:'まだ余裕がある', rir:'RIR 3以上' },
+    { val:2, icon:'🟠', name:'きつい',   sub:'あと1〜2回できた', rir:'RIR 1〜2' },
+    { val:3, icon:'🔴', name:'限界',     sub:'もう出せない',   rir:'RIR 0' },
+  ];
+  grid.innerHTML = levels.map(lv => {
+    const c = rpeColor(lv.val);
+    const isSelected = lv.val === currentRpe;
+    const selStyle = isSelected ? `border-color:${c.text};box-shadow:0 0 0 1px ${c.text};` : '';
+    return `
+<button class="rpe-btn${isSelected ? ' rpe-selected' : ''}" onclick="selectRpe(${lv.val})"
+        style="background:${c.bg};color:${c.text};${selStyle};padding:0.9rem 0.4rem;gap:4px">
+  <span style="font-size:1.6rem;line-height:1">${lv.icon}</span>
+  <span style="font-size:0.95rem;font-weight:800;line-height:1.2">${lv.name}</span>
+  <span style="font-size:0.68rem;font-weight:600;opacity:0.75;line-height:1.3;text-align:center">${lv.sub}</span>
+  <span style="font-size:0.62rem;font-weight:700;border-radius:4px;padding:0.1rem 0.35rem;background:rgba(0,0,0,0.06);margin-top:2px">${lv.rir}</span>
+</button>`;
+  }).join('');
+
+  const overlay = document.getElementById('rpe-overlay');
+  overlay.classList.remove('hidden', 'closing');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => {
+    const firstBtn = document.querySelector('#rpe-grid .rpe-btn');
+    if (firstBtn) firstBtn.focus();
+  }, 300);
+}
+
+function closeRpePicker() {
+  const overlay = document.getElementById('rpe-overlay');
+  overlay.classList.add('closing');
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('closing');
+    document.body.style.overflow = '';
+    rpePickerTarget = null;
+    if (_rpeOpener) { _rpeOpener.focus(); _rpeOpener = null; }
+  }, 260);
+}
+
+function selectRpe(val) {
+  if (!rpePickerTarget) return;
+  const { date, exName, setIdx } = rpePickerTarget;
+  const wo = WO[date];
+  if (!wo) return;
+  const ex = wo.exercises.find(e => e.name === exName);
+  if (!ex || setIdx >= ex.sets.length) return;
+  ex.sets[setIdx].rpe = val;
+  closeRpePicker();
+  setTimeout(() => renderLog(), 270);
+  const lName = val === 1 ? '余裕あり' : val === 2 ? 'きつい' : '限界';
+  showToast(`強度「${lName}」を記録しました`);
+}
+
+function clearRpe() {
+  if (!rpePickerTarget) return;
+  const { date, exName, setIdx } = rpePickerTarget;
+  const wo = WO[date];
+  if (!wo) return;
+  const ex = wo.exercises.find(e => e.name === exName);
+  if (ex && setIdx < ex.sets.length) {
+    delete ex.sets[setIdx].rpe;
+  }
+  closeRpePicker();
+  setTimeout(() => renderLog(), 270);
+}
+
+// ══════════════════════════════════════════════════════════
 //  インタラクション
 // ══════════════════════════════════════════════════════════
 
@@ -1401,8 +2126,78 @@ document.getElementById('tab-log').addEventListener('click',     () => switchTab
 document.getElementById('tab-menu').addEventListener('click',    () => switchTab('menu'));
 document.getElementById('tab-history').addEventListener('click', () => switchTab('history'));
 
-// Escape キーでオーバーレイを閉じる
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeExDetail(); });
+// ── グローバルイベントデリゲーション ──────────────────────────
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const { action, exName, setIdx, exMuscle, exIsSeconds, exUnit, date } = el.dataset;
+  switch (action) {
+    case 'open-ex-detail':   openExDetail(exName); break;
+    case 'open-rpe':         openRpePicker(exName, parseInt(setIdx, 10)); break;
+    case 'remove-ex':        removeExercise(exName, currentDate); break;
+    case 'open-add-ex':      openAddExSheet(); break;
+    case 'set-pending-ex':
+      setPendingEx(exName, exMuscle, exIsSeconds === 'true', exUnit === 'null' ? null : exUnit);
+      break;
+    case 'goto-date':        gotoDate(date); break;
+    case 'select-menu-day':  selectMenuDay(date); break;
+  }
+});
+
+// ── キーボード操作 ─────────────────────────────────────────────
+function _getFocusable(container) {
+  return Array.from(container.querySelectorAll(
+    'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter(el => el.offsetParent !== null);
+}
+
+document.addEventListener('keydown', e => {
+  // Escape でオーバーレイを閉じる
+  if (e.key === 'Escape') {
+    closeRpePicker();
+    closeExDetail();
+    closeAddExSheet();
+    return;
+  }
+
+  // Enter / Space で role="button" の疑似ボタンをアクティブ化
+  if (e.key === 'Enter' || e.key === ' ') {
+    const el = document.activeElement;
+    if (el && el.getAttribute('role') === 'button' && el.dataset.action) {
+      e.preventDefault();
+      el.click();
+      return;
+    }
+  }
+
+  // Tab でフォーカストラップ（オーバーレイ内に閉じ込める）
+  if (e.key === 'Tab') {
+    const overlays = [
+      { el: document.getElementById('rpe-overlay'),     sheet: '#rpe-sheet' },
+      { el: document.getElementById('ex-overlay'),      sheet: '#ex-sheet' },
+      { el: document.getElementById('add-ex-overlay'),  sheet: '#add-ex-sheet' },
+    ];
+    for (const { el, sheet } of overlays) {
+      if (!el.classList.contains('hidden') && !el.classList.contains('closing')) {
+        const container = document.querySelector(sheet);
+        if (!container) break;
+        const focusable = _getFocusable(container);
+        if (!focusable.length) break;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first || !container.contains(document.activeElement)) {
+            e.preventDefault(); last.focus();
+          }
+        } else {
+          if (document.activeElement === last || !container.contains(document.activeElement)) {
+            e.preventDefault(); first.focus();
+          }
+        }
+        break;
+      }
+    }
+  }
+});
 
 renderLog();
 updateMenuBadge();
