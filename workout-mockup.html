@@ -82,6 +82,53 @@
     #ex-body::-webkit-scrollbar { display: none; }
     #ex-body { -ms-overflow-style: none; scrollbar-width: none; }
 
+    /* タブバッジ */
+    .tab-wrap { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; }
+    .tab-badge {
+      position: absolute; top: 0.3rem; right: 0.55rem;
+      min-width: 0.82rem; height: 0.82rem; border-radius: 999px;
+      background: #ff3b30; border: 2px solid rgba(120,120,128,0.16);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.55rem; font-weight: 800; color: #fff;
+      pointer-events: none;
+    }
+    .tab-badge.hidden { display: none; }
+
+    /* 完了ボタン */
+    @keyframes completionBounce {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.04); }
+      100% { transform: scale(1); }
+    }
+    .complete-btn {
+      width: 100%; padding: 1rem 1rem; border-radius: 16px;
+      background: #007aff; color: #fff; border: none; cursor: pointer;
+      font-size: 1rem; font-weight: 700; letter-spacing: 0.02em;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.35s ease, box-shadow 0.25s ease;
+      box-shadow: 0 4px 14px rgba(0,122,255,0.28);
+    }
+    .complete-btn:not(:disabled):active { opacity: 0.85; }
+    .complete-btn.done {
+      background: #34c759;
+      box-shadow: 0 4px 14px rgba(52,199,89,0.3);
+      animation: completionBounce 0.38s ease both;
+      cursor: default;
+    }
+    .complete-btn:disabled { cursor: default; }
+
+    /* トースト */
+    #toast {
+      position: fixed; bottom: max(2rem, env(safe-area-inset-bottom));
+      left: 50%; transform: translateX(-50%) translateY(0);
+      background: rgba(30,30,30,0.92); color: #fff;
+      padding: 0.65rem 1.1rem; border-radius: 999px;
+      font-size: 0.88rem; font-weight: 600;
+      white-space: nowrap; pointer-events: none; z-index: 200;
+      opacity: 0; transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(-0.25rem); }
+
     /* 重量推移チャート */
     svg.prog-chart polyline {
       fill: none; stroke: #007aff; stroke-width: 2.5;
@@ -97,6 +144,9 @@
 </head>
 <body class="min-h-dvh bg-[#f2f2f7] font-sans text-base leading-snug tracking-tight text-black">
 
+<!-- ── トースト通知 ── -->
+<div id="toast"></div>
+
 <!-- ── メインコンテンツ ── -->
 <div class="mx-auto max-w-[375px] pb-[max(2rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))]">
 
@@ -107,9 +157,12 @@
     </div>
     <div id="view-switch-tabs" class="flex w-full rounded-[10px] p-[3px]"
          style="background:rgba(120,120,128,0.16)" role="tablist" aria-label="表示切り替え">
-      <button type="button" role="tab" id="tab-menu" aria-selected="false"
-        class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
-        style="color:rgba(60,60,67,0.6)">メニュー</button>
+      <div class="tab-wrap">
+        <button type="button" role="tab" id="tab-menu" aria-selected="false"
+          class="w-full min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
+          style="color:rgba(60,60,67,0.6)">メニュー</button>
+        <span id="menu-badge" class="tab-badge">●</span>
+      </div>
       <button type="button" role="tab" id="tab-log" aria-selected="true"
         class="flex-1 min-h-[2.75rem] cursor-pointer rounded-lg border-none bg-transparent text-[0.88rem] font-bold tracking-wide"
         style="color:rgba(60,60,67,0.6)">記録</button>
@@ -174,88 +227,93 @@ const TODAY    = '2026-05-01';
 const MIN_DATE = '2026-04-18';
 
 // ── コーチ情報 ──────────────────────────────────────────────
-const COACH = { name: '田中コーチ', emoji: '👨‍💼' };
+const COACH = { name: '山本義徳', emoji: '🏋️', title: 'ボディビルダー・トレーニング科学者' };
 
 // ── 週間推奨メニュー ───────────────────────────────────────
 const WEEKLY_PLAN = {
   weekStart: '2026-04-27',
   weekEnd:   '2026-05-03',
   sentDate:  '2026-04-27',
-  coachMessage: 'お疲れさまです！今週はベンチプレスとデッドリフトの重量維持を最優先に。特に木曜の胸トレはインクラインの質を意識してほしいです。土曜のスクワットは先週の反省を活かして膝の状態をみながら無理せず攻めてください。今週も一緒に頑張りましょう 💪',
+  coachMessage: '今週のデータを確認しました。ベンチプレスは80kgで神経系の適応が進んでいる段階です。前半2セットで10回を達成できれば、筋タンパク合成の観点から次サイクルで85kgへの移行を検討できます。デッドリフトは100kgを達成しましたが、腰椎への圧迫を最小化するため、ヒンジ動作時の骨盤後傾に注意してください。スクワットは膝関節の状態を優先し、深度よりも大腿四頭筋・ハムストリングスへの張力維持を意識して実施してください。トレーニング後45分以内に体重×2gのタンパク質摂取を忘れずに。',
   days: {
     '2026-04-27': {
       type: '脚・腹筋',
       targets: [
-        { name: 'スクワット',   sets: 4, reps: '10',    weight: '90 kg',  note: '先週87.5kgで成功。今週は90kgを目指して！' },
-        { name: 'レッグプレス', sets: 3, reps: '12-15', weight: '150 kg' },
-        { name: 'レッグカール', sets: 3, reps: '12',    weight: '37.5–40 kg' },
-        { name: 'クランチ',     sets: 3, reps: '25',    weight: '自重' },
-        { name: 'プランク',     sets: 3, reps: '60秒',  weight: '―',      isSeconds: true },
+        { name: 'スクワット',   sets: 4, reps: '10',    weight: '90 kg',  note: '先週87.5kgで成功。漸進性過負荷の原則に従い90kgへ移行。大腿四頭筋への張力を意識し、膝がつま先を越えないよう骨盤をニュートラルに保つこと。' },
+        { name: 'レッグプレス', sets: 3, reps: '12-15', weight: '150 kg', note: 'ネガティブ局面（下ろす動作）を2〜3秒かけてコントロールすること。速度が速いと筋肥大刺激が低下する。' },
+        { name: 'レッグカール', sets: 3, reps: '12',    weight: '37.5–40 kg', note: 'ハムストリングスは伸展位での負荷が重要。収縮時に反動を使わないこと。' },
+        { name: 'クランチ',     sets: 3, reps: '25',    weight: '自重',   note: '腹直筋の収縮を意識。腰椎を丸めることが目的であり、首への負担を排除する。' },
+        { name: 'プランク',     sets: 3, reps: '60秒',  weight: '―',      isSeconds: true, note: '体幹の等尺性収縮。腰椎の過伸展が生じたら即座に中断すること。' },
       ],
     },
     '2026-04-29': {
       type: '背中・二頭筋',
       targets: [
-        { name: 'デッドリフト',     sets: 4, reps: '5',     weight: '100 kg', note: '先週95kg成功。今週100kgに挑戦！フォームを崩さないように。' },
-        { name: 'ラットプルダウン', sets: 3, reps: '10-12', weight: '60 kg' },
-        { name: 'シーテッドロウ',   sets: 3, reps: '10-12', weight: '55 kg' },
-        { name: 'バーベルカール',   sets: 3, reps: '10-12', weight: '27.5–30 kg' },
-        { name: 'ハンマーカール',   sets: 3, reps: '12',    weight: '14 kg' },
+        { name: 'デッドリフト',     sets: 4, reps: '5',     weight: '100 kg', note: '先週95kg成功。脊柱起立筋の過緊張を避けるため、バーを体に近づけたまま引くこと。高重量域では5rep以下が神経系強化に有効。' },
+        { name: 'ラットプルダウン', sets: 3, reps: '10-12', weight: '60 kg',  note: '肩甲骨の内転・下制を先行させること。肘を体側に引き込む意識が広背筋の収縮を最大化する。' },
+        { name: 'シーテッドロウ',   sets: 3, reps: '10-12', weight: '55 kg',  note: '上体の前後動（チーティング）は最小化すること。菱形筋・僧帽筋中部への刺激が目的。' },
+        { name: 'バーベルカール',   sets: 3, reps: '10-12', weight: '27.5–30 kg', note: '肘関節の屈曲・伸展のみを使い、肩関節の代償運動を排除すること。反動は使わない。' },
+        { name: 'ハンマーカール',   sets: 3, reps: '12',    weight: '14 kg',  note: '上腕筋・腕橈骨筋を鍛えるため、手首を中立位に保つこと。' },
       ],
     },
     '2026-05-01': {
       type: '胸・肩・三頭筋',
       targets: [
-        { name: 'ベンチプレス',                  sets: 4, reps: '8-10',  weight: '80 kg',  note: '前半2セットは10回キープ。後半は8回でOK。次回は85kgを視野に。' },
-        { name: 'インクライン D.プレス',         sets: 3, reps: '10-12', weight: '24 kg' },
-        { name: 'ダンベルフライ',                sets: 3, reps: '12',    weight: '18 kg' },
-        { name: 'ショルダープレス',              sets: 3, reps: '10-12', weight: '20 kg' },
-        { name: 'ライイング T.エクステンション', sets: 3, reps: '10-12', weight: '15 kg' },
+        { name: 'ベンチプレス',                  sets: 4, reps: '8-10',  weight: '80 kg',  note: '前半2セットで10repを達成できれば筋タンパク合成シグナルは十分。後半は8repでも可。肩甲骨を寄せ・下制した状態でブリッジを維持し、三角筋前部への過負荷を防ぐこと。' },
+        { name: 'インクライン D.プレス',         sets: 3, reps: '10-12', weight: '24 kg',  note: '大胸筋上部は鎖骨部の繊維を走行するため、インクライン角度は30〜45度が最適。' },
+        { name: 'ダンベルフライ',                sets: 3, reps: '12',    weight: '18 kg',  note: '筋肉を最大伸展位で使うことが重要。深く降ろしすぎて肩関節に痛みを感じた場合は可動域を制限すること。' },
+        { name: 'ショルダープレス',              sets: 3, reps: '10-12', weight: '20 kg',  note: '三角筋中部への有効な刺激を与えるため、肘が肩と同じ高さ以上まで上げること。' },
+        { name: 'ライイング T.エクステンション', sets: 3, reps: '10-12', weight: '15 kg',  note: '三頭筋の長頭は肩関節をまたぐため、ライイング種目での伸展が最大収縮を引き出す。' },
       ],
     },
     '2026-05-02': {
       type: '脚・腹筋',
       targets: [
-        { name: 'スクワット',   sets: 4, reps: '10',    weight: '90 kg',  note: '膝の状態を確認しながら。痛みがあれば87.5kgに落とす。' },
-        { name: 'レッグプレス', sets: 3, reps: '15',    weight: '155 kg', note: '先週150kgから少し上げてみましょう' },
-        { name: 'レッグカール', sets: 3, reps: '12',    weight: '40 kg' },
+        { name: 'スクワット',   sets: 4, reps: '10',    weight: '90 kg',  note: '膝関節の状態を最優先に評価すること。痛みがあれば即座に87.5kgへ戻す。重量より可動域と筋肉への張力維持を優先するのが原則。' },
+        { name: 'レッグプレス', sets: 3, reps: '15',    weight: '155 kg', note: '先週150kgから漸進的に増加。高rep域は筋持久力・毛細血管密度の向上に有効。' },
+        { name: 'レッグカール', sets: 3, reps: '12',    weight: '40 kg',  note: 'ハムストリングスの完全伸展位を作ること。スタート時に骨盤を前傾させると伸展が深まる。' },
         { name: 'クランチ',     sets: 3, reps: '25',    weight: '自重' },
       ],
     },
   },
   feedbacks: {
     '2026-04-27': {
-      text: 'スクワット90kgを達成！先週から2.5kg増加、素晴らしいです。ただ4セット目でフォームが少し崩れていたので、次回は重量より正しいフォームを優先してください。プランクの時間も安定してきました。この調子で！',
+      text: 'スクワット90kgを達成しましたね。漸進性過負荷の原則に沿った適切な重量増加です。ただし4セット目でバーの軌道が若干前方にずれていました。これは体幹部の安定性低下によるものです。次回は重量を増やすより、体幹の抗屈曲力を高めることを優先してください。プランクの保持時間は安定しており、コアの等尺性収縮能力は改善されています。',
       rating: 4,
       points: [
-        { type: 'positive', text: 'スクワット重量更新 🎉' },
-        { type: 'positive', text: 'プランク安定' },
-        { type: 'improve',  text: '後半セットのフォームを意識' },
+        { type: 'positive', text: '漸進性過負荷を達成（+2.5 kg）' },
+        { type: 'positive', text: 'プランク保持能力が安定' },
+        { type: 'improve',  text: '4セット目の体幹安定性を強化すること' },
       ],
       sentAt: '4/27 21:30',
     },
     '2026-04-29': {
-      text: 'デッドリフト100kg達成、本当に素晴らしい！フォームも終始安定していました。ラットプルダウン・シーテッドロウも目標通りのボリューム。バーベルカールは最後のセットで少し反動を使っていましたが、全体的には満足のいくトレーニングでした。来週は105kgに挑戦してみましょう！',
+      text: 'デッドリフト100kgを達成しました。フォームは全セットを通じて安定しており、評価できます。ラットプルダウン・シーテッドロウも処方通りのボリュームを遂行できています。バーベルカールの最終セットで肩関節の代償運動（前方への振り）が観察されました。上腕二頭筋だけに刺激を集中させるため、肘の位置を固定することを徹底してください。次週はデッドリフトを105kgで試みることを推奨します。',
       rating: 5,
       points: [
-        { type: 'positive', text: 'デッドリフト重量更新 🏆' },
-        { type: 'positive', text: 'フォーム終始安定' },
-        { type: 'positive', text: '全種目目標達成' },
-        { type: 'improve',  text: 'カール最終セットは反動なしで' },
+        { type: 'positive', text: 'デッドリフト 100 kg 達成（神経系適応の進展）' },
+        { type: 'positive', text: 'フォーム全セット安定' },
+        { type: 'positive', text: '全種目処方ボリューム完遂' },
+        { type: 'improve',  text: 'カール最終セット：肩関節の代償を排除すること' },
       ],
       sentAt: '4/29 22:05',
     },
-    '2026-05-01': {
-      text: 'ベンチプレス80kgで前半2セット10回をキープ、よくやりました！後半は8回でしたが計画通りです。ショルダープレスは後半に少し落ちましたが全セット完遂できました。インクライン・フライも丁寧にこなせていましたね。次回のベンチは85kgでのトライを提案します。準備できていると思います！',
-      rating: 4,
-      points: [
-        { type: 'positive', text: 'ベンチプレス計画通り ✓' },
-        { type: 'positive', text: '全種目完遂' },
-        { type: 'improve',  text: '次回ベンチ85kgに挑戦' },
-      ],
-      sentAt: '5/1 21:15',
-      isNew: true,
-    },
+    // 2026-05-01 のフィードバックはトレーニング完了後に追加される
+  },
+};
+
+// トレーニング完了後に届くフィードバック（未到達分）
+const FEEDBACK_ON_COMPLETE = {
+  '2026-05-01': {
+    text: 'ベンチプレス80kgで前半2セット10repを達成できています。神経系の適応が進んでいる証拠です。後半2セットは8repになりましたが、これはプログラム通りであり問題ありません。次サイクルで85kgへの移行を検討してください。ショルダープレスの後半セットで肘が外旋気味になっていましたが、三角筋中部への刺激という観点では問題のない範囲です。インクラインD.プレスとダンベルフライは処方通りに完遂できており、大胸筋上部への十分な刺激が入っています。総ボリュームも適切です。',
+    rating: 4,
+    points: [
+      { type: 'positive', text: 'ベンチプレス前半：10rep達成（神経系適応の進展）' },
+      { type: 'positive', text: '全5種目・処方ボリューム完遂' },
+      { type: 'improve',  text: '次サイクルでベンチ85kgへ移行を検討' },
+    ],
+    sentAt: '5/1 21:15',
+    isNew: true,
   },
 };
 
@@ -361,6 +419,14 @@ const WO = {
 
 let currentDate = TODAY;
 
+// ── アプリ状態 ──────────────────────────────────────────────
+// 完了済みトレーニング（今日はまだ未完了）
+const completedDates = new Set(['2026-04-27', '2026-04-29']);
+// 今週のコーチメニューは未読
+let menuIsNew = true;
+// フィードバック新着（完了後に更新）
+let feedbackIsNew = false;
+
 function shiftDate(d, n) {
   const dt = new Date(d + 'T00:00:00');
   dt.setDate(dt.getDate() + n);
@@ -436,9 +502,25 @@ function getAllExByMuscle() {
   return grouped;
 }
 
-// ══════════════════════════════════════════════════════════
-//  記録ビュー
-// ══════════════════════════════════════════════════════════
+// ── バッジ・トースト ────────────────────────────────────────
+function updateMenuBadge() {
+  const badge = document.getElementById('menu-badge');
+  if (!badge) return;
+  badge.classList.toggle('hidden', !menuIsNew && !feedbackIsNew);
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// ── バッジ・トースト ここまで ────────────────────────────────
+
+
 
 function renderLog() {
   document.getElementById('date-display').textContent = fmtDate(currentDate);
@@ -493,7 +575,9 @@ ${wo.memo ? `
     <div class="text-[0.78rem] font-semibold uppercase tracking-wide mb-2" style="color:rgba(60,60,67,0.5)">メモ</div>
     <p class="text-[0.95rem] leading-relaxed">${wo.memo}</p>
   </div>
-</section>` : ''}`;
+</section>` : ''}
+
+${buildCompleteButton(currentDate)}`;
 }
 
 function buildExercise(ex, idx, total) {
@@ -546,6 +630,61 @@ function buildRestDay() {
   <div style="font-size:1.05rem;font-weight:700;margin-bottom:0.25rem">休息日</div>
   <div style="font-size:0.88rem;color:rgba(60,60,67,0.55)">この日の記録はありません</div>
 </div>`;
+}
+
+// ── 完了ボタン ────────────────────────────────────────────────
+
+function buildCompleteButton(ds) {
+  if (ds !== TODAY) return '';
+  const isDone = completedDates.has(ds);
+  if (isDone) {
+    return `
+<div class="mb-4">
+  <button class="complete-btn done" disabled>
+    ✓ 本日のトレーニング完了
+  </button>
+  <p style="text-align:center;font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.45);margin-top:0.5rem">
+    コーチへ記録を送信済みです
+  </p>
+</div>`;
+  }
+  return `
+<div class="mb-4">
+  <button class="complete-btn" id="complete-btn-today" onclick="completeTraining()">
+    🏁 本日のトレーニング完了
+  </button>
+  <p style="text-align:center;font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.45);margin-top:0.5rem">
+    タップすると記録が保存されコーチに送信されます
+  </p>
+</div>`;
+}
+
+function completeTraining() {
+  const btn = document.getElementById('complete-btn-today');
+  if (!btn || completedDates.has(TODAY)) return;
+
+  // ボタンをロック
+  btn.disabled = true;
+  btn.textContent = '送信中…';
+
+  setTimeout(() => {
+    // 状態更新
+    completedDates.add(TODAY);
+
+    // フィードバック到着を遅延演出
+    setTimeout(() => {
+      if (FEEDBACK_ON_COMPLETE[TODAY]) {
+        WEEKLY_PLAN.feedbacks[TODAY] = FEEDBACK_ON_COMPLETE[TODAY];
+        feedbackIsNew = true;
+        updateMenuBadge();
+        showToast('🏋️ 山本義徳からフィードバックが届きました');
+      }
+    }, 1400);
+
+    // 記録ビューを再描画（ボタンを完了状態へ）
+    renderLog();
+    showToast('✓ 記録を保存しました');
+  }, 800);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -963,10 +1102,29 @@ let selectedMenuDate = TODAY;
 
 function renderMenu() {
   document.getElementById('menu-content').innerHTML =
+    buildWeeklyNewBanner() +
     buildCoachMessage() + buildWeekGrid() + buildDayMenuDetail(selectedMenuDate);
 }
 
 // ── コーチメッセージカード ──────────────────────────────────
+function buildWeeklyNewBanner() {
+  if (!menuIsNew) return '';
+  const d = new Date(WEEKLY_PLAN.sentDate + 'T00:00:00');
+  const sentLabel = `${d.getMonth()+1}月${d.getDate()}日`;
+  return `
+<div class="mb-3 rounded-[14px] overflow-hidden fade-in"
+     style="background:linear-gradient(135deg,#0a84ff 0%,#0066cc 100%);box-shadow:0 4px 16px rgba(0,122,255,0.28)">
+  <div class="px-4 py-3.5">
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+      <span style="font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:0.01em">📬 今週のコーチメニューが届きました</span>
+    </div>
+    <div style="font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.75)">
+      ${sentLabel} 送信 · ${WEEKLY_PLAN.weekStart.slice(5).replace('-','/')} 〜 ${WEEKLY_PLAN.weekEnd.slice(5).replace('-','/')} の週
+    </div>
+  </div>
+</div>`;
+}
+
 function buildCoachMessage() {
   const d = new Date(WEEKLY_PLAN.sentDate + 'T00:00:00');
   const sentLabel = `${d.getMonth()+1}/${d.getDate()} 送信`;
@@ -977,7 +1135,7 @@ function buildCoachMessage() {
       <div style="width:2.2rem;height:2.2rem;border-radius:50%;background:rgba(10,132,255,0.1);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${COACH.emoji}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:0.9rem;font-weight:700">${COACH.name}</div>
-        <div style="font-size:0.72rem;font-weight:500;color:rgba(60,60,67,0.5)">今週のメッセージ · ${sentLabel}</div>
+        <div style="font-size:0.72rem;font-weight:500;color:rgba(60,60,67,0.5)">${COACH.title} · ${sentLabel}</div>
       </div>
       <div style="font-size:0.72rem;font-weight:600;border-radius:999px;padding:0.15rem 0.55rem;background:rgba(10,132,255,0.1);color:#0a84ff;flex-shrink:0">
         ${WEEKLY_PLAN.weekStart.slice(5).replace('-','/')} 〜 ${WEEKLY_PLAN.weekEnd.slice(5).replace('-','/')}
@@ -1181,7 +1339,7 @@ function buildMenuFeedback(ds) {
         <div style="width:1.9rem;height:1.9rem;border-radius:50%;background:rgba(10,132,255,0.1);display:flex;align-items:center;justify-content:center;font-size:0.95rem">${COACH.emoji}</div>
         <div>
           <div style="font-size:0.88rem;font-weight:700">${COACH.name}</div>
-          <div style="font-size:0.68rem;color:rgba(60,60,67,0.45)">${fb.sentAt} 送信</div>
+          <div style="font-size:0.68rem;color:rgba(60,60,67,0.45)">${COACH.title} · ${fb.sentAt} 送信</div>
         </div>
       </div>
       <div style="font-size:1rem;letter-spacing:0.05em">${stars}</div>
@@ -1222,8 +1380,13 @@ function switchTab(name) {
     tab.style.color = active ? '#000' : 'rgba(60,60,67,0.6)';
     panel.classList.toggle('hidden', !active);
   });
+  if (name === 'menu') {
+    menuIsNew = false;
+    feedbackIsNew = false;
+    updateMenuBadge();
+    renderMenu();
+  }
   if (name === 'history') renderHistory();
-  if (name === 'menu')    renderMenu();
 }
 
 document.getElementById('prev-day').addEventListener('click', () => {
@@ -1242,6 +1405,7 @@ document.getElementById('tab-history').addEventListener('click', () => switchTab
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeExDetail(); });
 
 renderLog();
+updateMenuBadge();
 </script>
 </body>
 </html>
