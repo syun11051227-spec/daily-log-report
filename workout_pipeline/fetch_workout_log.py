@@ -37,14 +37,13 @@ def fetch_workout_log() -> list[dict]:
       F:muscle | G:set_number | H:weight | I:unit | J:reps |
       K:is_seconds | L:rpe | M:memo
     """
-    import gspread.exceptions
     client = _get_client()
     try:
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_LOG)
-    except gspread.exceptions.WorksheetNotFound:
-        print(f'[fetch_workout_log] シート "{SHEET_LOG}" が見つかりません。', flush=True)
+    except Exception as e:
+        print(f'[fetch_workout_log] "{SHEET_LOG}" シートが見つかりません: {e}')
         return []
-    rows = sheet.get_all_values()[HEADER_ROWS:]  # ヘッダー3行をスキップ
+    rows   = sheet.get_all_values()[HEADER_ROWS:]  # ヘッダー3行をスキップ
 
     records = []
     for row in rows:
@@ -80,15 +79,13 @@ def fetch_goals() -> list[dict]:
       E:unit | F:target_date | G:note
     シートが存在しない場合は空リストを返す。
     """
-    import gspread.exceptions
     client = _get_client()
     try:
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_GOALS)
-    except gspread.exceptions.WorksheetNotFound:
-        print(f'[fetch_goals] シート "{SHEET_GOALS}" が見つかりません。目標なしで続行します。',
-              flush=True)
+    except Exception as e:
+        print(f'[fetch_goals] "{SHEET_GOALS}" シートが見つかりません（スキップ）: {e}')
         return []
-    rows = sheet.get_all_values()[HEADER_ROWS:]
+    rows   = sheet.get_all_values()[HEADER_ROWS:]
 
     goals = []
     for row in rows:
