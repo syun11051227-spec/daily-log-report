@@ -1,0 +1,41 @@
+name: 筋トレ週次プラン生成
+
+on:
+  # 毎週日曜 19:00 CST（= UTC 11:00）に自動実行
+  schedule:
+    - cron: '0 11 * * 0'
+  # 手動実行
+  workflow_dispatch:
+  # workout_pipeline/ の変更時にも実行（動作確認用）
+  push:
+    paths:
+      - 'workout_pipeline/**'
+      - '.github/workflows/deploy-workout-plan.yml'
+
+jobs:
+  generate-plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: workout_pipeline/requirements.txt
+
+      - name: 依存ライブラリをインストール
+        run: pip install -r workout_pipeline/requirements.txt
+
+      - name: 筋トレプランを生成して Sheets に書き込む
+        env:
+          GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON:  ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GEMINI_API_KEY:               ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          cd workout_pipeline
+          python generate_workout_plan.py

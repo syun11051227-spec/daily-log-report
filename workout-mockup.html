@@ -385,6 +385,9 @@ function parseNumeric(value) {
 const TODAY    = '2026-05-01';
 const MIN_DATE = '2026-04-18';
 
+// ── Apps Script URL（Step2でコピーしたURLを貼り付けてください）──────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9J25BB_mvQjANvzIBuqLY4cS4EZDRmmxGiUQ34Hv-xvOanGroHiztP5Un8QInOp-OiA/exec';
+
 // ── コーチ情報 ──────────────────────────────────────────────
 const COACH = { name: '山本義徳', emoji: '🏋️', title: 'ボディビルダー・トレーニング科学者' };
 
@@ -727,20 +730,234 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
 }
 
-// ── バッジ・トースト ここまで ────────────────────────────────
+// ── バッジ・トースト ここまで ────────────────────────────
 
+// ══════════════════════════════════════════════════════════
+//  LocalStorage 永続化
+// ══════════════════════════════════════════════════════════
 
+const LS_WO_KEY        = 'wl_wo_v1';
+const LS_COMPLETED_KEY = 'wl_completed_v1';
+const LS_QUEUE_KEY     = 'wl_queue_v1';
+
+function lsSaveWO() {
+  try { localStorage.setItem(LS_WO_KEY, JSON.stringify(WO)); } catch(e) {}
+}
+function lsLoadWO() {
+  try {
+    const raw = localStorage.getItem(LS_WO_KEY);
+    if (raw) Object.assign(WO, JSON.parse(raw));
+  } catch(e) { console.warn('WO load failed', e); }
+}
+function lsSaveCompleted() {
+  try { localStorage.setItem(LS_COMPLETED_KEY, JSON.stringify([...completedDates])); } catch(e) {}
+}
+function lsLoadCompleted() {
+  try {
+    const raw = localStorage.getItem(LS_COMPLETED_KEY);
+    if (raw) JSON.parse(raw).forEach(d => completedDates.add(d));
+  } catch(e) {}
+}
+function lsLoadQueue() {
+  try { return JSON.parse(localStorage.getItem(LS_QUEUE_KEY) || '[]'); } catch(e) { return []; }
+}
+function lsSaveQueue(q) {
+  try { localStorage.setItem(LS_QUEUE_KEY, JSON.stringify(q)); } catch(e) {}
+}
+function lsInit() {
+  try {
+    lsLoadWO();
+    lsLoadCompleted();
+  } catch(e) {
+    console.warn('lsInit failed, clearing cache:', e);
+    try {
+      localStorage.removeItem(LS_WO_KEY);
+      localStorage.removeItem(LS_COMPLETED_KEY);
+      localStorage.removeItem(LS_QUEUE_KEY);
+    } catch(_) {}
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  今日のワークアウト初期化（メニューから）
+// ══════════════════════════════════════════════════════════
+
+function getMuscleForExercise(name) {
+  const master = EXERCISE_MASTER.find(e => e.name === name);
+  if (master) return master.muscle;
+  for (const wo of Object.values(WO)) {
+    const ex = wo.exercises.find(e => e.name === name);
+    if (ex) return ex.muscle;
+  }
+  return '';
+}
+
+function initTodayWorkout() {
+  if (WO[TODAY]) return;
+  const plan = WEEKLY_PLAN.days[TODAY];
+  if (!plan) return;
+  WO[TODAY] = {
+    type:      plan.type,
+    duration:  0,
+    memo:      '',
+    exercises: plan.targets.map(t => ({
+      name:      t.name,
+      muscle:    getMuscleForExercise(t.name),
+      unit:      'kg',
+      isSeconds: t.isSeconds || false,
+      editable:  true,
+      sets:      Array.from({ length: t.sets }, () => ({ w: null, r: null })),
+    })),
+  };
+}
+
+// ══════════════════════════════════════════════════════════
+//  Google Sheets 同期
+// ══════════════════════════════════════════════════════════
+
+let _syncStatusTimer = null;
+let _syncMsg   = '';
+let _syncColor = '';
+
+function showSyncStatus(msg, color) {
+  _syncMsg   = msg   || '';
+  _syncColor = color || '';
+  const el = document.getElementById('sync-status');
+  if (el) {
+    el.textContent = _syncMsg;
+    el.style.color  = _syncColor;
+  }
+  if (_syncStatusTimer) clearTimeout(_syncStatusTimer);
+  if (_syncMsg && _syncColor !== '#ff3b30') {
+    _syncStatusTimer = setTimeout(() => {
+      _syncMsg = '';
+      const el2 = document.getElementById('sync-status');
+      if (el2) el2.textContent = '';
+    }, 6000);
+  }
+}
+
+function syncToSheets(dateStr) {
+  if (!APPS_SCRIPT_URL) return Promise.reject(new Error('URL未設定'));
+  const wo = WO[dateStr];
+  if (!wo) return Promise.reject(new Error('データなし'));
+  const payload = {
+    action:       'save_workout',
+    date:         dateStr,
+    workout_type: wo.type,
+    duration:     wo.duration || 0,
+    memo:         wo.memo    || '',
+    exercises:    wo.exercises.map(ex => ({
+      name:       ex.name,
+      muscle:     ex.muscle,
+      unit:       ex.unit       || 'kg',
+      is_seconds: ex.isSeconds  || false,
+      sets:       ex.sets.map(s => ({
+        weight: s.w   ?? null,
+        reps:   s.r   ?? null,
+        rpe:    s.rpe ?? null,
+      })),
+    })),
+  };
+  return fetch(APPS_SCRIPT_URL, {
+    method:  'POST',
+    mode:    'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body:    JSON.stringify(payload),
+  });
+}
+
+function trySyncWithStatus(dateStr) {
+  showSyncStatus('⟳ Sheetsに送信中…');
+  syncToSheets(dateStr)
+    .then(() => {
+      const q = lsLoadQueue().filter(d => d !== dateStr);
+      lsSaveQueue(q);
+      showSyncStatus('☁ Sheetsに送信完了', '#34c759');
+    })
+    .catch(() => {
+      const q = lsLoadQueue();
+      if (!q.includes(dateStr)) { q.push(dateStr); lsSaveQueue(q); }
+      showSyncStatus('📱 端末に保存済み（電波回復後に自動送信）', '#ff9500');
+    });
+}
+
+window.addEventListener('online', () => {
+  const queue = lsLoadQueue();
+  queue.forEach(dateStr => {
+    syncToSheets(dateStr)
+      .then(() => {
+        const q = lsLoadQueue().filter(d => d !== dateStr);
+        lsSaveQueue(q);
+        showToast(`☁ ${dateStr} の記録をSheetsに送信しました`);
+      })
+      .catch(() => {});
+  });
+});
+
+// ── セット追加・削除 ──────────────────────────────────────
+
+function addSet(dateStr, exName) {
+  const wo = WO[dateStr];
+  if (!wo) return;
+  const ex = wo.exercises.find(e => e.name === exName);
+  if (!ex) return;
+  ex.sets.push({ w: null, r: null });
+  lsSaveWO();
+  renderLog();
+}
+
+function removeLastSet(dateStr, exName) {
+  const wo = WO[dateStr];
+  if (!wo) return;
+  const ex = wo.exercises.find(e => e.name === exName);
+  if (!ex || ex.sets.length <= 1) return;
+  ex.sets.pop();
+  lsSaveWO();
+  renderLog();
+}
 
 function renderLog() {
   _sessionsCache = new Map();
-  document.getElementById('date-display').textContent = fmtDate(currentDate);
-  document.getElementById('prev-day').disabled = currentDate <= MIN_DATE;
-  document.getElementById('next-day').disabled = currentDate >= TODAY;
-  const wo = WO[currentDate];
-  const el = document.getElementById('day-content');
-  el.innerHTML = wo ? buildWorkout(wo) : buildRestDay();
-  el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in');
-  _sessionsCache = null;
+  try {
+    document.getElementById('date-display').textContent = fmtDate(currentDate);
+    document.getElementById('prev-day').disabled = currentDate <= MIN_DATE;
+    document.getElementById('next-day').disabled = currentDate >= TODAY;
+    const wo = WO[currentDate];
+    const el = document.getElementById('day-content');
+    el.innerHTML = wo ? buildWorkout(wo) : buildRestDay();
+    el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in');
+    // 再描画後に同期ステータスを復元
+    const statusEl = document.getElementById('sync-status');
+    if (statusEl && _syncMsg) {
+      statusEl.textContent = _syncMsg;
+      statusEl.style.color  = _syncColor;
+    }
+  } catch(err) {
+    console.error('renderLog error:', err);
+    const el = document.getElementById('day-content');
+    if (el) el.innerHTML = `
+<div class="rounded-[14px] bg-white overflow-hidden mb-3 px-4 py-6"
+     style="box-shadow:0 0.5px 0 rgba(60,60,67,0.12);text-align:center">
+  <div style="font-size:1.5rem;margin-bottom:0.5rem">⚠️</div>
+  <div style="font-size:0.95rem;font-weight:700;margin-bottom:0.3rem">表示エラーが発生しました</div>
+  <div style="font-size:0.8rem;color:rgba(60,60,67,0.55);margin-bottom:1rem">${escHtml(err.message)}</div>
+  <button onclick="clearWorkoutCache()" style="padding:0.5rem 1.2rem;border-radius:10px;background:#ff3b30;color:#fff;border:none;font-size:0.88rem;font-weight:700;cursor:pointer">
+    キャッシュをリセットして再読み込み
+  </button>
+</div>`;
+  } finally {
+    _sessionsCache = null;
+  }
+}
+
+function clearWorkoutCache() {
+  try {
+    localStorage.removeItem(LS_WO_KEY);
+    localStorage.removeItem(LS_COMPLETED_KEY);
+    localStorage.removeItem(LS_QUEUE_KEY);
+  } catch(e) {}
+  location.reload();
 }
 
 function buildWorkout(wo) {
@@ -901,6 +1118,16 @@ function buildEditableExercise(ex, idx) {
     <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;color:rgba(60,60,67,0.35);text-align:right;margin-left:0.3rem">RPE</span>
   </div>
   ${setRows}
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:0.45rem 1rem;border-top:1px solid rgba(60,60,67,0.08)">
+    <button type="button" onclick="addSet('${escAttr(ds)}','${escAttr(ex.name)}')"
+      style="display:flex;align-items:center;gap:0.3rem;background:transparent;border:none;cursor:pointer;color:#007aff;font-size:0.85rem;font-weight:700;-webkit-tap-highlight-color:transparent;padding:0.25rem 0;min-height:2.75rem">
+      <span style="font-size:1.1rem;font-weight:300;line-height:1">＋</span> セットを追加
+    </button>
+    ${ex.sets.length > 1 ? `<button type="button" onclick="removeLastSet('${escAttr(ds)}','${escAttr(ex.name)}')"
+      style="background:transparent;border:none;cursor:pointer;color:#ff3b30;font-size:0.82rem;font-weight:600;-webkit-tap-highlight-color:transparent;padding:0.25rem 0;min-height:2.75rem">
+      最終セットを削除
+    </button>` : '<span></span>'}
+  </div>
 </div>`;
 }
 
@@ -910,12 +1137,14 @@ function updateSet(dateStr, exName, setIdx, field, value) {
   const ex = wo.exercises.find(e => e.name === exName);
   if (!ex || !ex.sets[setIdx]) return;
   ex.sets[setIdx][field] = parseNumeric(value);
+  lsSaveWO();
 }
 
 function removeExercise(exName, dateStr) {
   const wo = WO[dateStr];
   if (!wo) return;
   wo.exercises = wo.exercises.filter(e => e.name !== exName);
+  lsSaveWO();
   renderLog();
   showToast(`${exName} を削除しました`);
 }
@@ -944,6 +1173,13 @@ function buildCompleteButton(ds) {
   <p style="text-align:center;font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.45);margin-top:0.5rem">
     コーチへ記録を送信済みです
   </p>
+  <div id="sync-status" style="text-align:center;font-size:0.75rem;font-weight:600;margin-top:0.25rem;min-height:1.2em"></div>
+  <div style="text-align:center;margin-top:0.6rem">
+    <button onclick="uncompleteTraining()"
+      style="background:transparent;border:none;cursor:pointer;font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.38);text-decoration:underline;-webkit-tap-highlight-color:transparent;padding:0.4rem 0.8rem">
+      記録を修正する
+    </button>
+  </div>
 </div>`;
   }
   return `
@@ -954,20 +1190,37 @@ function buildCompleteButton(ds) {
   <p style="text-align:center;font-size:0.78rem;font-weight:600;color:rgba(60,60,67,0.45);margin-top:0.5rem">
     タップすると記録が保存されコーチに送信されます
   </p>
+  <div id="sync-status" style="text-align:center;font-size:0.75rem;font-weight:600;margin-top:0.25rem;min-height:1.2em"></div>
 </div>`;
+}
+
+function uncompleteTraining() {
+  completedDates.delete(TODAY);
+  lsSaveCompleted();
+  _syncMsg   = '';
+  _syncColor = '';
+  renderLog();
+  showToast('記録を未完了に戻しました');
 }
 
 function completeTraining() {
   const btn = document.getElementById('complete-btn-today');
   if (!btn || completedDates.has(TODAY)) return;
 
-  // ボタンをロック
   btn.disabled = true;
   btn.textContent = '送信中…';
 
   setTimeout(() => {
-    // 状態更新
     completedDates.add(TODAY);
+    lsSaveCompleted();
+    lsSaveWO();
+
+    // 先に画面を更新してから非同期処理へ
+    renderLog();
+    showToast('✓ 記録を保存しました');
+
+    // Sheetsへ同期（renderLog の後に呼ぶ）
+    trySyncWithStatus(TODAY);
 
     // フィードバック到着を遅延演出
     setTimeout(() => {
@@ -978,10 +1231,6 @@ function completeTraining() {
         showToast('🏋️ 山本義徳からフィードバックが届きました');
       }
     }, 1400);
-
-    // 記録ビューを再描画（ボタンを完了状態へ）
-    renderLog();
-    showToast('✓ 記録を保存しました');
   }, 800);
 }
 
@@ -1588,6 +1837,7 @@ function addExerciseToWorkout(name, muscle, isSeconds, unit) {
     editable: true,
     sets: Array.from({ length: 5 }, () => ({ w: null, r: null })),
   });
+  lsSaveWO();
   closeAddExSheet();
   renderLog();
   showToast(`✓ ${name} を追加しました`);
@@ -2199,6 +2449,8 @@ document.addEventListener('keydown', e => {
   }
 });
 
+lsInit();
+initTodayWorkout();
 renderLog();
 updateMenuBadge();
 </script>
