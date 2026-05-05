@@ -25,148 +25,194 @@ from workout_analyze   import analyze, build_prompt
 from coach_llm         import generate
 
 
-# ── Sheets 書き込み用クライアント ─────────────────────────
+# ── 設定 ─────────────────────────────────────────────────
 
-SCOPES = [
-    'https://www.googleapis.com/auth/spreadsheets',   # 読み書き
-]
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = os.environ['GOOGLE_SHEETS_SPREADSHEET_ID']
 
 SHEET_MENU     = 'weekly_menu'
 SHEET_FEEDBACK = 'coach_feedback'
-HEADER_ROWS    = 3
+HEADER_ROWS    = 2   # 列名・説明の2行（setup_sheets.py 実行後）
 
 
-def _write_client():
+# ── 認証 ─────────────────────────────────────────────────
+
+def _client():
     creds_json = os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON')
     if creds_json:
-        info  = json.loads(creds_json)
-        creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+        creds = Credentials.from_service_account_info(
+            json.loads(creds_json), scopes=SCOPES)
     else:
         creds = Credentials.from_service_account_file(
             os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', 'credentials.json'),
-            scopes=SCOPES,
-        )
+            scopes=SCOPES)
     return gspread.authorize(creds)
 
 
-# ── Sheets への書き込み ───────────────────────────────────
+# ── 汎用ユーティリティ ────────────────────────────────────
 
-def _next_week_range():
-    """翌週月曜〜日曜の日付を返す"""
+def _delete_rows_matching(sheet: gspread.Worksheet,
+                          col_idx: int, key: str) -> int:
+    """
+    col_idx 列の値が key と一致するデータ行（HEADER_ROWS 以降）を削除する。
+    連続する行をグループ化して一括 API 呼び出しにすることで
+    レート制限・インデックスズレを回避する。
+    削除した行数を返す。
+    """
+    all_rows = sheet.get_all_values()
+    # 削除対象を 1-indexed の行番号リストで収集（逆順）
+    targets = [
+        i + 1
+        for i in range(len(all_rows) - 1, HEADER_ROWS - 1, -1)
+        if len(all_rows[i]) > col_idx and all_rows[i][col_idx] == key
+    ]
+    if not targets:
+        return 0
+
+    # 連続する番号をグループ化 → (start, end) タプルのリスト（逆順）
+    groups: list[tuple[int, int]] = []
+    run_end = run_start = targets[0]
+    for r in targets[1:]:
+        if r == run_start - 1:        # 連続している
+            run_start = r
+        else:
+            groups.append((run_start, run_end))
+            run_end = run_start = r
+    groups.append((run_start, run_end))
+
+    for start, end in groups:
+        sheet.delete_rows(start, end)
+
+    return len(targets)
+
+
+def _next_week_range() -> tuple[str, str]:
+    """翌週月曜〜日曜の ISO 日付を返す"""
     today  = date.today()
     monday = today - timedelta(days=today.weekday()) + timedelta(weeks=1)
-    sunday = monday + timedelta(days=6)
-    return monday.isoformat(), sunday.isoformat()
+    return monday.isoformat(), (monday + timedelta(days=6)).isoformat()
 
+
+# ── weekly_menu 書き込み ──────────────────────────────────
 
 def write_weekly_menu(client: gspread.Client, plan: list[dict],
-                      coach_message: str, week_start: str, week_end: str):
-    """weekly_menu シートに翌週メニューを書き込む"""
+                      coach_message: str,
+                      week_start: str, week_end: str) -> None:
+    """weekly_menu シートへ翌週メニューを書き込む。同週の既存データは上書き。"""
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_MENU)
     now   = date.today().isoformat()
 
-    # 同じ week_start の既存行を削除（再実行時の重複防止）
-    all_rows = sheet.get_all_values()
-    for i in range(len(all_rows) - 1, HEADER_ROWS - 1, -1):
-        if len(all_rows[i]) > 1 and all_rows[i][1] == week_start:
-            sheet.delete_rows(i + 1)
+    # 同じ week_start の既存行を一括削除
+    deleted = _delete_rows_matching(sheet, col_idx=1, key=week_start)
+    if deleted:
+        print(f'[menu] 既存 {deleted} 行を削除しました', file=sys.stderr)
 
-    # 新しい行を追加
-    rows = []
+    # 書き込む行を構築
+    #   A(空) | B:week_start | C:week_end | D:training_date | E:workout_type
+    #   F:exercise_name | G:target_sets | H:target_reps | I:target_weight
+    #   J:coach_note | K:coach_message | L:generated_at
+    rows: list[list] = []
     for day in plan:
         for ex in day.get('exercises', []):
             rows.append([
-                '',                             # A列（空）
-                week_start,                     # B: week_start
-                week_end,                       # C: week_end
-                day.get('training_date', ''),   # D: training_date
-                day.get('workout_type', ''),    # E: workout_type
-                ex.get('name', ''),             # F: exercise_name
-                ex.get('target_sets', ''),      # G: target_sets
-                ex.get('target_reps', ''),      # H: target_reps
-                ex.get('target_weight', ''),    # I: target_weight
-                ex.get('coach_note', ''),       # J: coach_note
-                coach_message,                  # K: coach_message（最初の行のみ有効）
-                now,                            # L: generated_at
+                '',
+                week_start,
+                week_end,
+                day.get('training_date', ''),
+                day.get('workout_type',  ''),
+                ex.get('name',           ''),
+                ex.get('target_sets',    ''),
+                ex.get('target_reps',    ''),
+                ex.get('target_weight',  ''),
+                ex.get('coach_note',     ''),
+                coach_message,        # 最初の行だけ（後で上書き）
+                now,
             ])
 
-    # coach_message は最初の1行のみ
+    if not rows:
+        print('[menu] 書き込むデータがありません', file=sys.stderr)
+        return
+
+    # coach_message は全体で最初の 1 行のみ
     for i in range(1, len(rows)):
         rows[i][10] = ''
 
-    if rows:
-        start_row = sheet.get_all_values().__len__() + 1
-        sheet.append_rows(rows, value_input_option='USER_ENTERED')
-    print(f'[main] weekly_menu に {len(rows)} 行書き込みました', file=sys.stderr)
+    sheet.append_rows(rows, value_input_option='USER_ENTERED')
+    print(f'[menu] {len(rows)} 行を書き込みました', file=sys.stderr)
 
 
-def write_feedback(client: gspread.Client, feedback: dict, training_date: str):
-    """coach_feedback シートにフィードバックを書き込む"""
+# ── coach_feedback 書き込み ───────────────────────────────
+
+def write_feedback(client: gspread.Client,
+                   feedback: dict, training_date: str) -> None:
+    """
+    coach_feedback シートへフィードバックを書き込む。
+    同じ training_date の既存行は上書き（削除→追記）。
+    列レイアウト:
+      A(空) | B:training_date | C:rating | D:feedback_text
+      E:point_type | F:point_text | G:generated_at
+    """
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_FEEDBACK)
     now   = date.today().isoformat()
 
-    # 同じ training_date の既存行を削除
-    all_rows = sheet.get_all_values()
-    for i in range(len(all_rows) - 1, HEADER_ROWS - 1, -1):
-        if len(all_rows[i]) > 1 and all_rows[i][1] == training_date:
-            sheet.delete_rows(i + 1)
+    # 同じ training_date の既存行を一括削除
+    deleted = _delete_rows_matching(sheet, col_idx=1, key=training_date)
+    if deleted:
+        print(f'[fb] 既存 {deleted} 行を削除しました', file=sys.stderr)
 
-    # フィードバック本文 + ポイントを1行ずつ書き込む
-    rows = []
+    # 書き込む行を構築（ポイントごとに 1 行）
+    rows: list[list] = []
     points = feedback.get('points', [])
-    for idx, pt in enumerate(points):
-        rows.append([
-            '',                                    # A列（空）
-            training_date,                         # B: training_date
-            feedback.get('rating', '') if idx == 0 else '',  # C: rating
-            feedback.get('text', '')   if idx == 0 else '',  # D: feedback_text
-            pt.get('type', ''),                    # E: point_type
-            pt.get('text', ''),                    # F: point_text
-            now,                                   # G: generated_at
-        ])
 
-    if not rows:  # ポイントなしの場合は1行だけ書く
+    if points:
+        for idx, pt in enumerate(points):
+            rows.append([
+                '',
+                training_date,
+                feedback.get('rating', '') if idx == 0 else '',
+                feedback.get('text',   '') if idx == 0 else '',
+                pt.get('type', ''),
+                pt.get('text', ''),
+                now,
+            ])
+    else:
+        # ポイントなし → 本文だけ 1 行
         rows.append([
             '', training_date,
             feedback.get('rating', ''),
-            feedback.get('text', ''),
+            feedback.get('text',   ''),
             '', '', now,
         ])
 
     sheet.append_rows(rows, value_input_option='USER_ENTERED')
-    print(f'[main] coach_feedback に {len(rows)} 行書き込みました', file=sys.stderr)
+    print(f'[fb] {len(rows)} 行を書き込みました', file=sys.stderr)
 
 
-# ── メイン処理 ────────────────────────────────────────────
+# ── メイン ────────────────────────────────────────────────
 
-def main():
+def main() -> None:
     print('[main] データ取得中…', file=sys.stderr)
     records = fetch_workout_log()
     goals   = fetch_goals()
 
     if not records:
-        print('[main] workout_log にデータがありません。処理を終了します。', file=sys.stderr)
+        print('[main] workout_log にデータがありません。終了します。', file=sys.stderr)
         sys.exit(0)
 
     print(f'[main] {len(records)} 行のログを取得しました', file=sys.stderr)
 
-    # 分析・プロンプト生成
     result = analyze(records, goals)
     prompt = build_prompt(result)
     print('[main] プロンプト生成完了', file=sys.stderr)
 
-    # Gemini API 呼び出し
     print('[main] Gemini でメニュー生成中…', file=sys.stderr)
     ai_result = generate(prompt)
-
     if ai_result is None:
-        print('[main] Gemini 生成失敗。処理を終了します。', file=sys.stderr)
+        print('[main] Gemini 生成失敗。終了します。', file=sys.stderr)
         sys.exit(1)
 
-    # Sheets に書き込む
     week_start, week_end = _next_week_range()
-    client = _write_client()
+    client = _client()
 
     write_weekly_menu(
         client,
@@ -176,10 +222,9 @@ def main():
         week_end      = week_end,
     )
 
-    # 直近のトレーニング日のフィードバックを書き込む
-    recent_dates = sorted({r['date'] for r in records}, reverse=True)
-    if recent_dates:
-        write_feedback(client, ai_result.get('feedback', {}), recent_dates[0])
+    # 直近トレーニング日のフィードバック
+    recent_date = sorted({r['date'] for r in records}, reverse=True)[0]
+    write_feedback(client, ai_result.get('feedback', {}), recent_date)
 
     print('[main] 完了', file=sys.stderr)
     print(json.dumps(ai_result, ensure_ascii=False, indent=2))

@@ -13,7 +13,7 @@ SPREADSHEET_ID = os.environ['GOOGLE_SHEETS_SPREADSHEET_ID']
 
 SHEET_LOG   = 'workout_log'
 SHEET_GOALS = 'goals'
-HEADER_ROWS = 3  # 列名・内容・例の3行をスキップ
+HEADER_ROWS = 2  # 列名・説明の2行をスキップ（setup_sheets.py 実行後）
 
 
 def _get_client():
