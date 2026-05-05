@@ -31,6 +31,14 @@ jobs:
       - name: 依存ライブラリをインストール
         run: pip install -r workout_pipeline/requirements.txt
 
+      - name: Sheetsヘッダーを初期化（初回のみ・以降は不要）
+        env:
+          GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON:  ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          cd workout_pipeline
+          python setup_sheets.py
+
       - name: 筋トレプランを生成して Sheets に書き込む
         env:
           GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
