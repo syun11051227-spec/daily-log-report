@@ -179,6 +179,17 @@ def build_prompt(analysis: dict) -> str:
         lines.append('')
 
     # AI への指示
+    # 過去のワークアウトタイプのパターンを抽出
+    from collections import Counter
+    all_types = [s['workout_type'] for s in analysis.get('recent_sessions', {}).values()
+                 if s.get('workout_type') and s['workout_type'] != '全身']
+    if all_types:
+        type_counts = Counter(all_types)
+        lines += ['## 過去に使用したワークアウトタイプ']
+        for wt, cnt in type_counts.most_common():
+            lines.append(f'- {wt}（{cnt}回）')
+        lines.append('')
+
     lines += [
         '## 指示',
         '上記データをもとに、以下のJSON形式で翌週プランとフィードバックを出力してください。',
