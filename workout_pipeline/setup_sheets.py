@@ -35,43 +35,46 @@ def _client():
 
 # ── 各シートのヘッダー定義 ────────────────────────────────
 
+# ヘッダーは B 列スタート（A 列は使用しない）
+# sheet.update(range_name='B1', values=headers) で書き込む
+
 WEEKLY_MENU_HEADERS = [
     # 行1: 列名（英語）
-    ['', 'week_start', 'week_end', 'training_date', 'workout_type',
+    ['week_start', 'week_end', 'training_date', 'workout_type',
      'exercise_name', 'target_sets', 'target_reps', 'target_weight',
      'coach_note', 'coach_message', 'generated_at'],
     # 行2: 説明（日本語）
-    ['', '週の開始日', '週の終了日', 'トレーニング予定日', '部位',
+    ['週の開始日', '週の終了日', 'トレーニング予定日', '部位',
      '種目名', '目標セット数', '目標回数', '目標重量',
      '種目ごとのコーチ指示', '週全体へのメッセージ', '生成日時'],
 ]
 
 COACH_FEEDBACK_HEADERS = [
     # 行1: 列名（英語）
-    ['', 'training_date', 'rating', 'feedback_text',
+    ['training_date', 'rating', 'feedback_text',
      'point_type', 'point_text', 'generated_at'],
     # 行2: 説明（日本語）
-    ['', '対象日', '評価（1〜5）', 'メインコメント',
+    ['対象日', '評価（1〜5）', 'メインコメント',
      'ポイント種別（positive / improve）', 'ポイント内容', '生成日時'],
 ]
 
 WORKOUT_LOG_HEADERS = [
     # 行1: 列名（英語）
-    ['', 'date', 'workout_type', 'duration', 'exercise_name',
+    ['date', 'workout_type', 'duration', 'exercise_name',
      'muscle', 'set_number', 'weight', 'unit', 'reps',
      'is_seconds', 'rpe', 'memo'],
     # 行2: 説明（日本語）
-    ['', '日付', '部位', 'トレーニング時間（分）', '種目名',
+    ['日付', '部位', 'トレーニング時間（分）', '種目名',
      '筋肉部位', 'セット番号', '重量', '単位', '回数 or 秒',
      '秒種目か', '強度（1〜3）', 'メモ'],
 ]
 
 GOALS_HEADERS = [
     # 行1: 列名（英語）
-    ['', 'exercise_name', 'goal_type', 'target_value',
+    ['exercise_name', 'goal_type', 'target_value',
      'unit', 'target_date', 'note'],
     # 行2: 説明（日本語）
-    ['', '種目名（空欄=全体目標）', '目標の種類', '目標数値',
+    ['種目名（空欄=全体目標）', '目標の種類', '目標数値',
      '単位', '達成したい日付', '補足'],
 ]
 
@@ -87,20 +90,13 @@ def setup_sheet(sheet: gspread.Worksheet,
     """
     col_count = max(len(h) for h in headers)
 
-    if preserve_data:
-        # ヘッダー行のみ上書き（A1 から HEADER_ROWS 行分）
-        sheet.update(
-            range_name=f'A1:{chr(ord("A") + col_count - 1)}{len(headers)}',
-            values=headers,
-            value_input_option='USER_ENTERED',
-        )
-        print(f'  ヘッダー {len(headers)} 行を更新しました（データは保持）')
-    else:
-        # 全クリアして再構築
-        sheet.clear()
-        sheet.update(range_name='A1', values=headers,
-                     value_input_option='USER_ENTERED')
-        print(f'  シートをクリアしてヘッダーを書き込みました')
+    # B 列スタートでヘッダーを書き込む（A 列は使用しない）
+    sheet.update(
+        range_name=f'B1',
+        values=headers,
+        value_input_option='USER_ENTERED',
+    )
+    print(f'  ヘッダー {len(headers)} 行を B 列スタートで更新しました（データは保持）')
 
 
 def fix_row3_in_data_sheets(client: gspread.Client) -> None:

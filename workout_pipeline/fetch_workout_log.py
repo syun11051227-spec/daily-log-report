@@ -32,10 +32,11 @@ def _get_client():
 def fetch_workout_log() -> list[dict]:
     """
     workout_log シートの全データを取得して返す。
-    各行を dict に変換する。列レイアウト:
-      A(空) | B:date | C:workout_type | D:duration | E:exercise_name |
-      F:muscle | G:set_number | H:weight | I:unit | J:reps |
-      K:is_seconds | L:rpe | M:memo
+    Apps Script が B 列スタートで書き込む（A 列は空）。
+    get_all_values() は A=index0, B=index1 で返すため index1 が date。
+    列レイアウト: B:date C:workout_type D:duration E:exercise_name
+                  F:muscle G:set_number H:weight I:unit J:reps
+                  K:is_seconds L:rpe M:memo
     """
     client = _get_client()
     try:
