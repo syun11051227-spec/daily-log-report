@@ -16,6 +16,7 @@ import sys
 from typing import Any
 
 from coach_comments import (
+    COACH_DISPLAY_COUNT,
     COACH_LLM_RULES_SNIPPET,
     CoachCard,
     month_summary_for_llm,
@@ -39,7 +40,7 @@ _RESPONSE_JSON_SCHEMA: dict[str, Any] = {
     "properties": {
         "coaches": {
             "type": "array",
-            "description": "週次データに基づき選ぶコーチちょうど2名",
+            "description": f"週次データに基づき選ぶコーチちょうど{COACH_DISPLAY_COUNT}名",
             "items": {
                 "type": "object",
                 "properties": {
@@ -56,8 +57,8 @@ _RESPONSE_JSON_SCHEMA: dict[str, Any] = {
                 },
                 "required": ["slug", "lines"],
             },
-            "minItems": 2,
-            "maxItems": 2,
+            "minItems": COACH_DISPLAY_COUNT,
+            "maxItems": COACH_DISPLAY_COUNT,
         }
     },
     "required": ["coaches"],
@@ -68,8 +69,43 @@ def _gemini_api_key() -> str | None:
     return (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY") or "").strip() or None
 
 
+def _parse_coach_cards(parsed: dict[str, Any], *, label: str = "") -> list[CoachCard] | None:
+    coaches_raw = parsed.get("coaches")
+    suffix = f"（{label}）" if label else ""
+    if not isinstance(coaches_raw, list) or len(coaches_raw) != COACH_DISPLAY_COUNT:
+        print(
+            f"coach_llm_gemini: coaches が {COACH_DISPLAY_COUNT} 要素ではありません{suffix}",
+            file=sys.stderr,
+        )
+        return None
+
+    out: list[CoachCard] = []
+    seen: set[str] = set()
+    for item in coaches_raw:
+        if not isinstance(item, dict):
+            return None
+        slug = str(item.get("slug", "")).strip()
+        lines = item.get("lines")
+        if slug not in _COACH_META or slug in seen:
+            print(f"coach_llm_gemini: 不正 slug または重複{suffix}: {slug!r}", file=sys.stderr)
+            return None
+        if not isinstance(lines, list) or len(lines) < 2:
+            print(f"coach_llm_gemini: lines が短すぎます{suffix}", file=sys.stderr)
+            return None
+        seen.add(slug)
+        text_lines = [str(x).strip() for x in lines if str(x).strip()]
+        if len(text_lines) < 2:
+            return None
+        name, role = _COACH_META[slug]
+        out.append(CoachCard(slug=slug, name=name, role=role, lines=tuple(text_lines[:4])))
+
+    order = {s: i for i, s in enumerate(_COACH_ORDER)}
+    out.sort(key=lambda c: order.get(c.slug, 99))
+    return out
+
+
 def try_gemini_coach_cards(rep: WeekReport) -> list[CoachCard] | None:
-    """Gemini でコーチ2名分を生成。キー未設定・API 失敗・JSON 不正時は None。"""
+    """Gemini でコーチを生成。キー未設定・API 失敗・JSON 不正時は None。"""
     key = _gemini_api_key()
     if not key:
         return None
@@ -96,12 +132,12 @@ def try_gemini_coach_cards(rep: WeekReport) -> list[CoachCard] | None:
 
 追加ルール:
 - 出力はスキーマに従う JSON のみ（説明文や Markdown 禁止）。
-- coaches はちょうど 2 要素。slug は重複禁止。5 名からデータに合う 2 名を選ぶ。
+- coaches はちょうど {COACH_DISPLAY_COUNT} 要素。slug は重複禁止。5 名からデータに合う {COACH_DISPLAY_COUNT} 名を選ぶ。
 - lines は日本語。各コーチ 2〜4 行。事実は次の JSON の数値・事実のみを使い、捏造しない。
 - mugikoge を選んだら 1 行目は必ず「むぎむー！」「こげげー！」を含める。別行で（）の犬視点メッセージを入れる。
 - 内村: 丁寧語「〜ですねぇ」。修造: 短く熱い口調。老師: 「〜ですな」調。ホタル: 明るく脱力寄り。"""
 
-    user = f"""以下の週次データ JSON を読み、コーチを 2 名選んでセリフを書いてください。
+    user = f"""以下の週次データ JSON を読み、コーチを {COACH_DISPLAY_COUNT} 名選んでセリフを書いてください。
 
 週次データ:
 {data_json}
@@ -139,39 +175,15 @@ def try_gemini_coach_cards(rep: WeekReport) -> list[CoachCard] | None:
             print(f"coach_llm_gemini: JSON 解析失敗: {exc}", file=sys.stderr)
             return None
 
-    coaches_raw = parsed.get("coaches")
-    if not isinstance(coaches_raw, list) or len(coaches_raw) != 2:
-        print("coach_llm_gemini: coaches が 2 要素ではありません", file=sys.stderr)
+    out = _parse_coach_cards(parsed)
+    if out is None:
         return None
-
-    out: list[CoachCard] = []
-    seen: set[str] = set()
-    for item in coaches_raw:
-        if not isinstance(item, dict):
-            return None
-        slug = str(item.get("slug", "")).strip()
-        lines = item.get("lines")
-        if slug not in _COACH_META or slug in seen:
-            print(f"coach_llm_gemini: 不正 slug または重複: {slug!r}", file=sys.stderr)
-            return None
-        if not isinstance(lines, list) or len(lines) < 2:
-            print("coach_llm_gemini: lines が短すぎます", file=sys.stderr)
-            return None
-        seen.add(slug)
-        text_lines = [str(x).strip() for x in lines if str(x).strip()]
-        if len(text_lines) < 2:
-            return None
-        name, role = _COACH_META[slug]
-        out.append(CoachCard(slug=slug, name=name, role=role, lines=tuple(text_lines[:4])))
-
-    order = {s: i for i, s in enumerate(_COACH_ORDER)}
-    out.sort(key=lambda c: order.get(c.slug, 99))
     print("coach_llm_gemini: Gemini でコーチコメントを生成しました", file=sys.stderr)
     return out
 
 
 def try_gemini_coach_cards_month(mrep: MonthReport) -> list[CoachCard] | None:
-    """月次サマリーでコーチ2名分を生成。失敗時は None。"""
+    """月次サマリーでコーチを生成。失敗時は None。"""
     key = _gemini_api_key()
     if not key:
         return None
@@ -198,13 +210,13 @@ def try_gemini_coach_cards_month(mrep: MonthReport) -> list[CoachCard] | None:
 
 追加ルール:
 - 出力はスキーマに従う JSON のみ（説明文や Markdown 禁止）。
-- coaches はちょうど 2 要素。slug は重複禁止。5 名からデータに合う 2 名を選ぶ。
+- coaches はちょうど {COACH_DISPLAY_COUNT} 要素。slug は重複禁止。5 名からデータに合う {COACH_DISPLAY_COUNT} 名を選ぶ。
 - lines は日本語。各コーチ 2〜4 行。事実は次の JSON の数値・事実のみを使い、捏造しない。
 - 月次であること（週タイル・月間達成率・先月比など）に言及してよい。
 - mugikoge を選んだら 1 行目は必ず「むぎむー！」「こげげー！」を含める。別行で（）の犬視点メッセージを入れる。
 - 内村: 丁寧語「〜ですねぇ」。修造: 短く熱い口調。老師: 「〜ですな」調。ホタル: 明るく脱力寄り。"""
 
-    user = f"""以下の月次データ JSON を読み、コーチを 2 名選んでセリフを書いてください。
+    user = f"""以下の月次データ JSON を読み、コーチを {COACH_DISPLAY_COUNT} 名選んでセリフを書いてください。
 
 月次データ:
 {data_json}
@@ -242,39 +254,15 @@ def try_gemini_coach_cards_month(mrep: MonthReport) -> list[CoachCard] | None:
             print(f"coach_llm_gemini: JSON 解析失敗（月次）: {exc}", file=sys.stderr)
             return None
 
-    coaches_raw = parsed.get("coaches")
-    if not isinstance(coaches_raw, list) or len(coaches_raw) != 2:
-        print("coach_llm_gemini: coaches が 2 要素ではありません（月次）", file=sys.stderr)
+    out = _parse_coach_cards(parsed, label="月次")
+    if out is None:
         return None
-
-    out: list[CoachCard] = []
-    seen: set[str] = set()
-    for item in coaches_raw:
-        if not isinstance(item, dict):
-            return None
-        slug = str(item.get("slug", "")).strip()
-        lines = item.get("lines")
-        if slug not in _COACH_META or slug in seen:
-            print(f"coach_llm_gemini: 不正 slug または重複（月次）: {slug!r}", file=sys.stderr)
-            return None
-        if not isinstance(lines, list) or len(lines) < 2:
-            print("coach_llm_gemini: lines が短すぎます（月次）", file=sys.stderr)
-            return None
-        seen.add(slug)
-        text_lines = [str(x).strip() for x in lines if str(x).strip()]
-        if len(text_lines) < 2:
-            return None
-        name, role = _COACH_META[slug]
-        out.append(CoachCard(slug=slug, name=name, role=role, lines=tuple(text_lines[:4])))
-
-    order = {s: i for i, s in enumerate(_COACH_ORDER)}
-    out.sort(key=lambda c: order.get(c.slug, 99))
     print("coach_llm_gemini: Gemini で月次コーチコメントを生成しました", file=sys.stderr)
     return out
 
 
 def try_gemini_coach_cards_year(yrep: YearReport) -> list[CoachCard] | None:
-    """年次サマリーでコーチ2名分を生成。失敗時は None。"""
+    """年次サマリーでコーチを生成。失敗時は None。"""
     key = _gemini_api_key()
     if not key:
         return None
@@ -298,13 +286,13 @@ def try_gemini_coach_cards_year(yrep: YearReport) -> list[CoachCard] | None:
 
 追加ルール:
 - 出力はスキーマに従う JSON のみ（説明文や Markdown 禁止）。
-- coaches はちょうど 2 要素。slug は重複禁止。5 名からデータに合う 2 名を選ぶ。
+- coaches はちょうど {COACH_DISPLAY_COUNT} 要素。slug は重複禁止。5 名からデータに合う {COACH_DISPLAY_COUNT} 名を選ぶ。
 - lines は日本語。各コーチ 2〜4 行。事実は次の JSON の数値・事実のみを使い、捏造しない。
 - 年次であること（月別達成率・年間フル日数・前年比など）に言及してよい。
 - mugikoge を選んだら 1 行目は必ず「むぎむー！」「こげげー！」を含める。別行で（）の犬視点メッセージを入れる。
 - 内村: 丁寧語「〜ですねぇ」。修造: 短く熱い口調。老師: 「〜ですな」調。ホタル: 明るく脱力寄り。"""
 
-    user = f"以下の年次データ JSON を読み、コーチを 2 名選んでセリフを書いてください。\n\n年次データ:\n{data_json}\n"
+    user = f"以下の年次データ JSON を読み、コーチを {COACH_DISPLAY_COUNT} 名選んでセリフを書いてください。\n\n年次データ:\n{data_json}\n"
 
     client = genai.Client(api_key=key)
     try:
@@ -336,29 +324,8 @@ def try_gemini_coach_cards_year(yrep: YearReport) -> list[CoachCard] | None:
         except json.JSONDecodeError:
             return None
 
-    coaches_raw = parsed.get("coaches")
-    if not isinstance(coaches_raw, list) or len(coaches_raw) != 2:
+    out = _parse_coach_cards(parsed, label="年次")
+    if out is None:
         return None
-
-    out: list[CoachCard] = []
-    seen: set[str] = set()
-    for item in coaches_raw:
-        if not isinstance(item, dict):
-            return None
-        slug = str(item.get("slug", "")).strip()
-        lines = item.get("lines")
-        if slug not in _COACH_META or slug in seen:
-            return None
-        if not isinstance(lines, list) or len(lines) < 2:
-            return None
-        seen.add(slug)
-        text_lines = [str(x).strip() for x in lines if str(x).strip()]
-        if len(text_lines) < 2:
-            return None
-        name, role = _COACH_META[slug]
-        out.append(CoachCard(slug=slug, name=name, role=role, lines=tuple(text_lines[:4])))
-
-    order = {s: i for i, s in enumerate(_COACH_ORDER)}
-    out.sort(key=lambda c: order.get(c.slug, 99))
     print("coach_llm_gemini: Gemini で年次コーチコメントを生成しました", file=sys.stderr)
     return out
