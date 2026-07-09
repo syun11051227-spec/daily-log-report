@@ -1,0 +1,71 @@
+# 公開リポジトリでは 60 日間コミット等の活動がないと schedule ワークフローが自動無効化される。
+# 本ワークフローは 50 日ごとに空コミットを push し、deploy-report-pages 等の cron を維持する。
+#
+# cron は週 1 回「チェック」のみ。実際の push は前回から 50 日以上経過したときだけ。
+name: Keep workflows alive
+
+on:
+  schedule:
+    # 毎週日曜 00:00 UTC（チェックのみ・push は 50 日間隔）
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Push keep-alive commit if 50+ days elapsed
+        env:
+          INTERVAL_DAYS: "50"
+        run: |
+          python3 <<'PY'
+          import os
+          import subprocess
+          from datetime import date
+          from pathlib import Path
+
+          interval = int(os.environ["INTERVAL_DAYS"])
+          marker = Path(".github/keep-alive-last.txt")
+          today = date.today()
+
+          if marker.exists():
+              last = date.fromisoformat(marker.read_text().strip())
+          else:
+              ts = subprocess.check_output(["git", "log", "-1", "--format=%cs"], text=True).strip()
+              last = date.fromisoformat(ts)
+
+          days = (today - last).days
+          print(f"Last marker: {last} ({days} days ago), interval: {interval}")
+
+          if days < interval:
+              print("Skip: interval not reached.")
+              raise SystemExit(0)
+
+          marker.parent.mkdir(parents=True, exist_ok=True)
+          marker.write_text(today.isoformat() + "\n")
+
+          subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
+          subprocess.run(
+              ["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"],
+              check=True,
+          )
+          subprocess.run(["git", "add", str(marker)], check=True)
+          subprocess.run(
+              ["git", "commit", "-m", "chore: keep workflows alive (50-day interval)"],
+              check=True,
+          )
+          subprocess.run(["git", "push"], check=True)
+          print("Keep-alive commit pushed.")
+          PY
