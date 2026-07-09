@@ -40,7 +40,7 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -66,7 +66,7 @@ jobs:
           python report_pipeline/generate_week_report.py -o public/index.html
 
       - name: Upload HTML artifact (Actions から ZIP 取得可)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: week-report-html
           path: public/index.html
@@ -81,6 +81,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
