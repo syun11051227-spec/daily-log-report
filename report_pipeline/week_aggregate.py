@@ -88,6 +88,68 @@ def add_normalized_minutes_column(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def daily_weight_by_date(df: pd.DataFrame) -> dict[date, float]:
+    """日付ごとの最終体重（kg）。行順の最後をその日の値とする。"""
+    wdf = df[
+        (df["item"].astype(str).str.strip() == "体重")
+        & (df["unit"].astype(str).str.strip() == "kg")
+    ].copy()
+    if wdf.empty:
+        return {}
+    wdf = wdf.dropna(subset=["date", "value"])
+    out: dict[date, float] = {}
+    for _, r in wdf.iterrows():
+        d = r["date"].date() if hasattr(r["date"], "date") else r["date"]
+        out[d] = float(r["value"])
+    return out
+
+
+def build_weight_history_series(
+    df: pd.DataFrame,
+    as_of: date,
+) -> tuple[list[float | None], tuple[str | None, str | None]]:
+    """記録開始日〜as_of の日次体重（欠測日は前回値で forward fill）。"""
+    daily = daily_weight_by_date(df)
+    if not daily:
+        return [], (None, None)
+    first_date = min(daily.keys())
+    if first_date > as_of:
+        return [], (None, None)
+    record_start = daily[first_date]
+    series: list[float | None] = []
+    last: float | None = None
+    d = first_date
+    while d <= as_of:
+        if d in daily:
+            last = daily[d]
+        series.append(last)
+        d += timedelta(days=1)
+    labels = (
+        f"{record_start:.1f}",
+        f"{last:.1f}" if last is not None else None,
+    )
+    return series, labels
+
+
+def week_weight_delta_kg(df: pd.DataFrame, mon: date, sun: date) -> float | None:
+    """表示週内の体重増減（週内 forward fill 後の首末差）。"""
+    daily = daily_weight_by_date(df)
+    filled: list[float | None] = []
+    last: float | None = None
+    for i in range(7):
+        d = mon + timedelta(days=i)
+        if d > sun:
+            break
+        if d in daily:
+            last = daily[d]
+        filled.append(last)
+    w_first = next((x for x in filled if x is not None), None)
+    w_last = next((x for x in reversed(filled) if x is not None), None)
+    if w_first is None or w_last is None:
+        return None
+    return w_last - w_first
+
+
 def day_kind_for_tracked(df_day: pd.DataFrame) -> tuple[DayKind, int]:
     """学習・運動・健康のみでフル／部分／未を判定。星数は該当カテゴリ数（1〜2は部分）。"""
     if df_day.empty:
@@ -235,8 +297,9 @@ class WeekReport:
     week_rate: int
     study_by_day: list[dict[str, float]]  # 7 entries, keys item -> minutes
     study_max_day_min: float
-    weight_series: list[float | None]  # 7 aligned, forward-filled for chart
-    weight_labels: tuple[str | None, str | None]
+    weight_series: list[float | None]  # 記録開始〜as_of の日次（forward fill）
+    weight_labels: tuple[str | None, str | None]  # 記録開始時・本日
+    weight_week_delta_kg: float | None  # 表示週内の増減（コーチ用）
     run_km_by_day: list[float]
     run_max_km: float
     pace_avg_min_per_km: str | None
@@ -296,34 +359,9 @@ def build_week_report(df: pd.DataFrame, as_of: date | None = None) -> WeekReport
     daily_totals = [sum(day.values()) for day in study_by_day]
     study_max_day_min = max(GOAL_STUDY_MIN_PER_DAY, max(daily_totals) if daily_totals else GOAL_STUDY_MIN_PER_DAY)
 
-    # 体重: 当日最終（時刻列はパースしないため行順の最後）。欠測は None。
-    raw_w: list[float | None] = []
-    for i in range(7):
-        d = mon + timedelta(days=i)
-        sub = df[df["date"].dt.date == d]
-        wsub = sub[
-            (sub["item"].astype(str).str.strip() == "体重")
-            & (sub["unit"].astype(str).str.strip() == "kg")
-        ]
-        if wsub.empty:
-            raw_w.append(None)
-        else:
-            last = wsub.iloc[-1]
-            raw_w.append(float(last["value"]) if pd.notna(last.get("value")) else None)
-
-    weight_series: list[float | None] = []
-    last: float | None = None
-    for v in raw_w:
-        if v is not None:
-            last = v
-        weight_series.append(last)
-
-    w_first = next((x for x in weight_series if x is not None), None)
-    w_last = next((x for x in reversed(weight_series) if x is not None), None)
-    weight_labels = (
-        f"{w_first:.1f}" if w_first is not None else None,
-        f"{w_last:.1f}" if w_last is not None else None,
-    )
+    # 体重: 記録開始〜本日の推移。コーチ向けに週内増減も別途保持。
+    weight_series, weight_labels = build_weight_history_series(df, today)
+    weight_week_delta = week_weight_delta_kg(df, mon, sun)
 
     run_max_km = max(GOAL_RUN_KM_PER_DAY, max(run_km_by_day) if run_km_by_day else GOAL_RUN_KM_PER_DAY)
 
@@ -384,6 +422,7 @@ def build_week_report(df: pd.DataFrame, as_of: date | None = None) -> WeekReport
         study_max_day_min=study_max_day_min,
         weight_series=weight_series,
         weight_labels=weight_labels,
+        weight_week_delta_kg=weight_week_delta,
         run_km_by_day=run_km_by_day,
         run_max_km=run_max_km,
         pace_avg_min_per_km=pace_avg,
