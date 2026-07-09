@@ -17,7 +17,7 @@ from __future__ import annotations
 import random
 
 # レポートに表示する人数（全5人のうちランダムに選ぶ）
-COACH_DISPLAY_COUNT = 2
+COACH_DISPLAY_COUNT = 1
 
 # Cursor / LLM 用・コーチ陣の振る舞いメモ（貼り付け用）
 COACH_LLM_RULES_SNIPPET = """
