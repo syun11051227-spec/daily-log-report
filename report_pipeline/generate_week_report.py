@@ -41,7 +41,6 @@ from week_aggregate import (
     build_month_report,
     build_week_report,
     build_year_report,
-    svg_weight_polyline,
     svg_weight_polyline_n,
 )
 
@@ -92,7 +91,7 @@ def main() -> None:
         (60.0 / rep.study_max_day_min) * 100.0 if rep.study_max_day_min > 0 else 0.0,
     )
 
-    poly, poly_fill, circles, goal_y = svg_weight_polyline(rep.weight_series)
+    poly, poly_fill, circles, goal_y = svg_weight_polyline_n(rep.weight_series)
 
     run_bars = [
         min(100.0, (km / rep.run_max_km) * 100.0) if rep.run_max_km > 0 else 0.0

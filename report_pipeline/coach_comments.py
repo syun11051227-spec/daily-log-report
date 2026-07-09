@@ -79,6 +79,8 @@ def _pace_goal_min(rep: WeekReport) -> float | None:
 
 
 def _weight_delta_kg(rep: WeekReport) -> float | None:
+    if rep.weight_week_delta_kg is not None:
+        return rep.weight_week_delta_kg
     a, b = rep.weight_labels
     if not a or not b:
         return None
@@ -608,6 +610,7 @@ def week_summary_for_llm(rep: WeekReport) -> dict:
         "pace_avg_per_km": rep.pace_avg_min_per_km,
         "pace_goal_per_km": rep.pace_goal_label,
         "weight_labels_kg": [rep.weight_labels[0], rep.weight_labels[1]],
+        "weight_delta_week_kg": round(z.wdelta, 2) if z.wdelta is not None else None,
         "weight_delta_kg": round(z.wdelta, 2) if z.wdelta is not None else None,
         "month_full_days": rep.month_full_days,
     }
