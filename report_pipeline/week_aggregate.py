@@ -131,25 +131,6 @@ def build_weight_history_series(
     return series, labels
 
 
-def week_weight_delta_kg(df: pd.DataFrame, mon: date, sun: date) -> float | None:
-    """表示週内の体重増減（週内 forward fill 後の首末差）。"""
-    daily = daily_weight_by_date(df)
-    filled: list[float | None] = []
-    last: float | None = None
-    for i in range(7):
-        d = mon + timedelta(days=i)
-        if d > sun:
-            break
-        if d in daily:
-            last = daily[d]
-        filled.append(last)
-    w_first = next((x for x in filled if x is not None), None)
-    w_last = next((x for x in reversed(filled) if x is not None), None)
-    if w_first is None or w_last is None:
-        return None
-    return w_last - w_first
-
-
 def day_kind_for_tracked(df_day: pd.DataFrame) -> tuple[DayKind, int]:
     """学習・運動・健康のみでフル／部分／未を判定。星数は該当カテゴリ数（1〜2は部分）。"""
     if df_day.empty:
@@ -299,7 +280,6 @@ class WeekReport:
     study_max_day_min: float
     weight_series: list[float | None]  # 記録開始〜as_of の日次（forward fill）
     weight_labels: tuple[str | None, str | None]  # 記録開始時・本日
-    weight_week_delta_kg: float | None  # 表示週内の増減（コーチ用）
     run_km_by_day: list[float]
     run_max_km: float
     pace_avg_min_per_km: str | None
@@ -359,9 +339,8 @@ def build_week_report(df: pd.DataFrame, as_of: date | None = None) -> WeekReport
     daily_totals = [sum(day.values()) for day in study_by_day]
     study_max_day_min = max(GOAL_STUDY_MIN_PER_DAY, max(daily_totals) if daily_totals else GOAL_STUDY_MIN_PER_DAY)
 
-    # 体重: 記録開始〜本日の推移。コーチ向けに週内増減も別途保持。
+    # 体重: 記録開始〜本日の推移。
     weight_series, weight_labels = build_weight_history_series(df, today)
-    weight_week_delta = week_weight_delta_kg(df, mon, sun)
 
     run_max_km = max(GOAL_RUN_KM_PER_DAY, max(run_km_by_day) if run_km_by_day else GOAL_RUN_KM_PER_DAY)
 
@@ -422,7 +401,6 @@ def build_week_report(df: pd.DataFrame, as_of: date | None = None) -> WeekReport
         study_max_day_min=study_max_day_min,
         weight_series=weight_series,
         weight_labels=weight_labels,
-        weight_week_delta_kg=weight_week_delta,
         run_km_by_day=run_km_by_day,
         run_max_km=run_max_km,
         pace_avg_min_per_km=pace_avg,

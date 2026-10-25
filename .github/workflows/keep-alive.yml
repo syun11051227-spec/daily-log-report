@@ -1,5 +1,5 @@
 # 公開リポジトリでは 60 日間コミット等の活動がないと schedule ワークフローが自動無効化される。
-# 本ワークフローは 50 日ごとに空コミットを push し、deploy-report-pages 等の cron を維持する。
+# 本ワークフローは 50 日ごとに空コミットを push し、deploy-report-pages の cron を維持する。
 #
 # cron は週 1 回「チェック」のみ。実際の push は前回から 50 日以上経過したときだけ。
 name: Keep workflows alive

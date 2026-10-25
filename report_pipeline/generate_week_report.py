@@ -7,8 +7,6 @@
   GOOGLE_SHEETS_SPREADSHEET_ID … 必須
   GOOGLE_SERVICE_ACCOUNT_JSON … 任意。設定時はサービスアカウントで読み取り（GitHub Actions 向け）
   GOOGLE_APPLICATION_CREDENTIALS … 任意。サービスアカウント JSON ファイルのパス
-  GEMINI_API_KEY または GOOGLE_API_KEY … 任意。設定時はコーチ文を Gemini で生成（失敗時はルールベースにフォールバック）
-  GEMINI_MODEL … 任意（既定: gemini-2.5-flash）
 
 例:
   python generate_week_report.py -o ../dist/week_report.html
@@ -22,17 +20,6 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from coach_comments import (
-    build_coach_cards,
-    build_coach_cards_month,
-    build_coach_cards_year,
-    pick_coach_cards_for_display,
-)
-from coach_llm_gemini import (
-    try_gemini_coach_cards,
-    try_gemini_coach_cards_month,
-    try_gemini_coach_cards_year,
-)
 from daily_log import load_daily_log
 from week_aggregate import (
     GOAL_RUN_KM_PER_DAY,
@@ -99,10 +86,6 @@ def main() -> None:
     ]
     run_goal_bottom_pct = min(100.0, (5.0 / rep.run_max_km) * 100.0) if rep.run_max_km > 0 else 0.0
 
-    coach_cards = try_gemini_coach_cards(rep)
-    if coach_cards is None:
-        coach_cards = pick_coach_cards_for_display(build_coach_cards(rep))
-
     month_study_cols: list[list[tuple[str, float]]] = []
     for week in mrep.study_by_week:
         total = sum(week.values())
@@ -138,10 +121,6 @@ def main() -> None:
         if mrep.run_max_week_km > 0
         else 0.0,
     )
-
-    coach_cards_month = try_gemini_coach_cards_month(mrep)
-    if coach_cards_month is None:
-        coach_cards_month = pick_coach_cards_for_display(build_coach_cards_month(mrep))
 
     month_week_tiles = list(
         zip(mrep.week_monday_labels, mrep.week_rates, mrep.week_rate_highlights)
@@ -187,10 +166,6 @@ def main() -> None:
         else 0.0,
     )
 
-    coach_cards_year = try_gemini_coach_cards_year(yrep)
-    if coach_cards_year is None:
-        coach_cards_year = pick_coach_cards_for_display(build_coach_cards_year(yrep))
-
     year_month_labels = [label for label, _, _ in yrep.month_tiles[: yrep.active_months]]
 
     env = Environment(
@@ -210,7 +185,6 @@ def main() -> None:
         weight_goal_y=goal_y,
         run_bars=run_bars,
         run_goal_bottom_pct=run_goal_bottom_pct,
-        coach_cards=coach_cards,
         month_study_cols=month_study_cols,
         month_goal_line_bottom_pct=month_goal_line_bottom_pct,
         month_weight_polyline=mpoly,
@@ -219,7 +193,6 @@ def main() -> None:
         month_weight_goal_y=mgoal_y,
         month_run_bars=month_run_bars,
         month_run_goal_bottom_pct=month_run_goal_bottom_pct,
-        coach_cards_month=coach_cards_month,
         month_week_tiles=month_week_tiles,
         month_week_cols=month_week_cols,
         year_study_cols=year_study_cols,
@@ -230,7 +203,6 @@ def main() -> None:
         year_weight_goal_y=ygoal_y,
         year_run_bars=year_run_bars,
         year_run_goal_bottom_pct=year_run_goal_bottom_pct,
-        coach_cards_year=coach_cards_year,
         year_month_labels=year_month_labels,
     )
     out.write_text(html, encoding="utf-8")

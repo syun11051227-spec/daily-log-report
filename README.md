@@ -13,8 +13,6 @@ daily-log-report/
 │   ├── week_aggregate.py       # 週次・月次・年次の集計ロジック
 │   ├── daily_log.py            # スプレッドシートのデータ読み込み
 │   ├── fetch_daily_log.py      # Google Sheets API 取得
-│   ├── coach_comments.py       # コーチコメント（ルールベース）
-│   ├── coach_llm_gemini.py     # コーチコメント（Gemini AI）
 │   ├── requirements.txt        # 必要なPythonライブラリ
 │   └── templates/
 │       └── week_report.html.j2 # HTMLテンプレート（Jinja2）
@@ -45,25 +43,14 @@ Google スプレッドシート（DailyLog）
 
 | タブ | 表示内容 |
 |------|----------|
-| **週間** | 日別達成タイル・KPI・コーチコメント・勉強/体重/ランニングチャート |
-| **月間** | 週別達成率・月間KPI・コーチコメント・週単位チャート |
-| **年間** | 月別達成率・年間KPI・コーチコメント・月単位チャート |
+| **週間** | 日別達成タイル・KPI・勉強/体重/ランニングチャート |
+| **月間** | 週別達成率・月間KPI・週単位チャート |
+| **年間** | 月別達成率・年間KPI・月単位チャート |
 
 ### 追跡カテゴリ
 - **学習**（Duolingo・中国語・プログラミング・ドリル）
 - **運動**（ランニング km・ペース）
 - **健康**（体重 kg）
-
-### コーチ陣
-5名からランダムで1名が毎回コメント。Gemini API キーがあれば AI 生成、なければルールベースで自動生成。
-
-| キャラ | 特徴 |
-|--------|------|
-| 内村さん | 伴走・全肯定・丁寧語 |
-| ホタル | データ分析・脱力系 |
-| むぎちゃ＆おこげ | 愛犬コンビ・癒やし |
-| 老師 | 教訓・長期視点 |
-| 修造コーチ | 熱血・全力応援 |
 
 ---
 
@@ -82,7 +69,6 @@ Google スプレッドシート（DailyLog）
 |-----------|------|
 | `GOOGLE_SHEETS_SPREADSHEET_ID` | スプレッドシートの ID（URL の中の長い文字列） |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | サービスアカウントの JSON キー（全文） |
-| `GEMINI_API_KEY` | （任意）Google AI Studio の API キー |
 
 ### 3. GitHub Pages の設定
 

@@ -169,23 +169,6 @@
       </div>
     </section>
 
-    <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="コーチコメント">
-      <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コーチコメント</h2>
-      <div class="flex flex-col gap-[0.75rem]">
-        {% for c in coach_cards %}
-        <article class="rounded-[12px] border border-ios-sep-light bg-ios-group/60 px-[0.85rem] py-[0.75rem]" data-coach="{{ c.slug }}">
-          <header class="mb-[0.35rem]">
-            <h3 class="m-0 text-[1.05rem] font-bold leading-tight text-black">{{ c.name }}</h3>
-            <p class="mt-0.5 m-0 text-[0.82rem] font-semibold leading-snug text-ios-secondary">{{ c.role }}</p>
-          </header>
-          {% for line in c.lines %}
-          <p class="{% if not loop.first %}mt-[0.45rem]{% else %}mt-0{% endif %} m-0 text-[1.02rem] font-medium leading-snug text-ios-label">{{ line }}</p>
-          {% endfor %}
-        </article>
-        {% endfor %}
-      </div>
-    </section>
-
     <div class="mt-4 flex flex-col gap-4">
       <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="勉強時間">
         <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強時間</h3>
@@ -327,23 +310,6 @@
         </div>
       </section>
 
-      <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間コーチコメント">
-        <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コーチコメント</h2>
-        <div class="flex flex-col gap-[0.75rem]">
-          {% for c in coach_cards_month %}
-          <article class="rounded-[12px] border border-ios-sep-light bg-ios-group/60 px-[0.85rem] py-[0.75rem]" data-coach="{{ c.slug }}">
-            <header class="mb-[0.35rem]">
-              <h3 class="m-0 text-[1.05rem] font-bold leading-tight text-black">{{ c.name }}</h3>
-              <p class="mt-0.5 m-0 text-[0.82rem] font-semibold leading-snug text-ios-secondary">{{ c.role }}</p>
-            </header>
-            {% for line in c.lines %}
-            <p class="{% if not loop.first %}mt-[0.45rem]{% else %}mt-0{% endif %} m-0 text-[1.02rem] font-medium leading-snug text-ios-label">{{ line }}</p>
-            {% endfor %}
-          </article>
-          {% endfor %}
-        </div>
-      </section>
-
       <div class="mt-4 flex flex-col gap-4">
         <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間勉強">
           <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強（月）</h3>
@@ -481,23 +447,6 @@
             <div class="text-[1.85rem] font-bold tabular-nums leading-[1.1] tracking-tight text-black">{{ yrep.full_days_delta_label }}</div>
             <div class="mt-[0.35rem] max-w-full px-0.5 text-[0.82rem] font-semibold leading-snug text-ios-secondary">前年比（全日）</div>
           </div>
-        </div>
-      </section>
-
-      <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間コーチコメント">
-        <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コーチコメント</h2>
-        <div class="flex flex-col gap-[0.75rem]">
-          {% for c in coach_cards_year %}
-          <article class="rounded-[12px] border border-ios-sep-light bg-ios-group/60 px-[0.85rem] py-[0.75rem]" data-coach="{{ c.slug }}">
-            <header class="mb-[0.35rem]">
-              <h3 class="m-0 text-[1.05rem] font-bold leading-tight text-black">{{ c.name }}</h3>
-              <p class="mt-0.5 m-0 text-[0.82rem] font-semibold leading-snug text-ios-secondary">{{ c.role }}</p>
-            </header>
-            {% for line in c.lines %}
-            <p class="{% if not loop.first %}mt-[0.45rem]{% else %}mt-0{% endif %} m-0 text-[1.02rem] font-medium leading-snug text-ios-label">{{ line }}</p>
-            {% endfor %}
-          </article>
-          {% endfor %}
         </div>
       </section>
 

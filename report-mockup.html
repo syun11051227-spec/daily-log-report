@@ -168,11 +168,6 @@
       </div>
     </section>
 
-    <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="コメント（表示は毎回ランダムで2名）">
-      <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コメント</h2>
-      <div class="coach-slots divide-y divide-ios-sep-light"></div>
-    </section>
-
     <div class="mt-4 flex flex-col gap-4">
       <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="勉強時間">
         <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強時間</h3>
@@ -347,10 +342,6 @@
           </div>
         </div>
       </section>
-      <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間コメント（表示は毎回ランダムで2名）">
-        <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コメント</h2>
-        <div class="coach-slots divide-y divide-ios-sep-light"></div>
-      </section>
       <div class="mt-4 flex flex-col gap-4">
         <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="月間勉強の目安">
           <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強（月）</h3>
@@ -461,10 +452,6 @@
           </div>
         </div>
       </section>
-      <section class="mt-4 rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間コメント（表示は毎回ランダムで2名）">
-        <h2 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">コメント</h2>
-        <div class="coach-slots divide-y divide-ios-sep-light"></div>
-      </section>
       <div class="mt-4 flex flex-col gap-4">
         <section class="rounded-[14px] bg-ios-card p-[1.05rem] pb-[1.1rem] shadow-[0_0.5px_0_rgba(60,60,67,0.12)]" aria-label="年間勉強の目安">
           <h3 class="m-0 mb-[0.85rem] border-b border-ios-sep-light pb-[0.7rem] text-xl font-bold tracking-tight text-black">勉強（年）</h3>
@@ -522,89 +509,6 @@
   </div>
   <script>
     (function () {
-      var COACH_PATTERNS = [
-        {
-          id: 'secretary',
-          title: '専属秘書',
-          img: 'assets/coach-secretary.png',
-          text: '土曜のプログラミングが目立っています。水曜は短時間でも記録を残すと、後から振り返りやすくなります。'
-        },
-        {
-          id: 'trainer',
-          title: '専属トレーナー',
-          img: 'assets/coach-trainer.png',
-          text: 'ペースの上下より、睡眠と脚のコンディションを一言メモしておくと、体調との相関が見えやすくなります。'
-        },
-        {
-          id: 'spartan',
-          title: 'スパルタコーチ',
-          img: 'assets/coach-spartan.png',
-          text: '言い訳は不要。今日できる最低限を今すぐ書き切れ。記録がない日は「ゼロ」として扱う。'
-        },
-        {
-          id: 'mugi',
-          title: 'むぎちゃ',
-          img: 'assets/coach-mugi.png',
-          text: 'ふぁいとぉ〜。無理しすぎない日を一つ入れても、長く続くコツだよ。'
-        },
-        {
-          id: 'okoge',
-          title: 'おこげ',
-          img: 'assets/coach-okoge.png',
-          text: 'こげついた週もある。焦らず翌週で取り返すペース表だけ、一緒に見よ。'
-        }
-      ];
-
-      function pickTwoDistinctIndices(len) {
-        var i = Math.floor(Math.random() * len);
-        var j = Math.floor(Math.random() * (len - 1));
-        if (j >= i) j += 1;
-        return [i, j];
-      }
-
-      function renderCoachBlock(p) {
-        var wrap = document.createElement('div');
-        wrap.className = 'py-4';
-        wrap.setAttribute('data-coach', p.id);
-        var row = document.createElement('div');
-        row.className = 'flex gap-3';
-        var img = document.createElement('img');
-        img.className = 'h-[3.35rem] w-[3.35rem] shrink-0 rounded-full border border-ios-sep-light bg-ios-group object-cover';
-        img.src = p.img;
-        img.width = 54;
-        img.height = 54;
-        img.alt = p.title + '（サンプル）';
-        img.loading = 'lazy';
-        img.decoding = 'async';
-        var body = document.createElement('div');
-        body.className = 'min-w-0 flex-1';
-        var role = document.createElement('p');
-        role.className = 'mb-1.5 text-[0.88rem] font-bold tracking-wide text-ios-secondary';
-        role.textContent = p.title;
-        var txt = document.createElement('p');
-        txt.className = 'm-0 text-[1.02rem] font-medium leading-snug text-black';
-        txt.textContent = p.text;
-        body.appendChild(role);
-        body.appendChild(txt);
-        row.appendChild(img);
-        row.appendChild(body);
-        wrap.appendChild(row);
-        return wrap;
-      }
-
-      function mountRandomCoachComments() {
-        var pair = pickTwoDistinctIndices(COACH_PATTERNS.length);
-        var a = COACH_PATTERNS[pair[0]];
-        var b = COACH_PATTERNS[pair[1]];
-        document.querySelectorAll('.coach-slots').forEach(function (slot) {
-          slot.innerHTML = '';
-          slot.appendChild(renderCoachBlock(a));
-          slot.appendChild(renderCoachBlock(b));
-        });
-      }
-
-      mountRandomCoachComments();
-
       var tabs = document.querySelectorAll('.view-switch [role="tab"]');
       var panels = document.querySelectorAll('.view-panel');
       var reportTitle = document.getElementById('report-nav-title');
